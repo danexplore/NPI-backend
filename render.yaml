@@ -1,0 +1,10 @@
+services:
+  - name: fastapi-backend
+    type: web
+    env: python
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.api.main:app --host 0.0.0.0 --port 8000"
+    envVars:
+      - key: PIPEFY_API_KEY
+        value: eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJQaXBlZnkiLCJpYXQiOjE3MzgyNTcyODksImp0aSI6ImYwMGMxNjgzLWUyMjQtNDhlZi05NjJmLTJmMmFmYmVmYjg5NCIsInN1YiI6MzA1NTY3MjY1LCJ1c2VyIjp7ImlkIjozMDU1NjcyNjUsImVtYWlsIjoibm92b3Nwcm9qZXRvc3VueWxleWFAZ21haWwuY29tIn19.sZ04gsiRnDpbecMTp8mvv9TKbt_Kj_ep0Cp3X8nlmmmpSEdOxLlfbK1XGJEPDQUTctc-Fxzi7xNlF8pNfCee1g
