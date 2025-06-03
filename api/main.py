@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import httpx
 from typing import Dict
@@ -6,6 +7,13 @@ import json
 from .models import Course, ApiResponse, CourseUpdate
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas as origens
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 API_URL = "https://api.pipefy.com/graphql"
 PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
