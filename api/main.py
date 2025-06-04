@@ -372,3 +372,12 @@ async def update_course_status(course_update: CourseUpdate):
     except Exception as error:
         print(f"Erro ao atualizar dados do curso: {error}")
         raise HTTPException(status_code=500, detail="Falha ao atualizar dados do curso")
+
+
+@app.post("/refresh-courses")
+async def refresh_courses():
+    """Clear cached course data and fetch fresh information."""
+    await FastAPICache.clear()
+    # call the underlying function without cache decorator context
+    courses = await get_courses.__wrapped__()
+    return courses
