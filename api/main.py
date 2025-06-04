@@ -159,13 +159,10 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                 course.videoUrl = value
             elif field["name"] == "Disciplinas IA":
                 if value:
-                    course.disciplinasIA = [
-                        {
-                            "nome": str(d.split(";")[0]),
-                            "carga": str(d.split(";")[1]) if len(d.split(";")) > 1 else "0"
-                        }
-                        for d in value.split("\n")
-                    ]
+                    values = value.split(";")
+                    nome = values[0]
+                    carga = values[1] if " " not in values[1] else values[1].split(" ")[0]
+                    course.disciplinasIA = {"nome": nome, "carga": carga}
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do comitê":
