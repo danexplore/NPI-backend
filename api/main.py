@@ -254,7 +254,7 @@ async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
-@cache(expire=2)  # Cache por 5 minutos
+@cache(expire=300)  # Cache por 5 minutos
 async def get_courses():
     try:
         all_edges = []
