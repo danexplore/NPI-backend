@@ -162,7 +162,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                 if value:
                     values = value.split(";")
                     nome = values[0]
-                    carga = values[1] if " " not in values[1] else values[1].split(" ")[0]
+                    carga = values[1] if len(values) > 1 else "0"
                     carga = re.search(r'\d+', carga).group()
                     course.disciplinasIA = {"nome": nome, "carga": int(carga)}
             elif field["name"] == "Status Pós-Comitê":
