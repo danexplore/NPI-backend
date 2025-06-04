@@ -1,4 +1,4 @@
 # python
 .venv/
-api/pycache/
+api/*pycache*
 .env

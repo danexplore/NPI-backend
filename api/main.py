@@ -5,6 +5,10 @@ import httpx
 from typing import Dict
 import json
 from .models import Course, ApiResponse, CourseUpdate
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+from redis import asyncio as aioredis
 
 app = FastAPI()
 
@@ -17,9 +21,13 @@ app.add_middleware(
 
 API_URL = "https://api.pipefy.com/graphql"
 PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
+REDIS_URL = os.getenv("REDIS_URL")
 
 if not PIPEFY_API_KEY:
     raise ValueError("PIPEFY_API_KEY não está definida nas variáveis de ambiente")
+
+if not REDIS_URL:
+    raise ValueError("REDIS_URL não está definida nas variáveis de ambiente")
 
 HEADERS = {
     "Authorization": f"Bearer {PIPEFY_API_KEY}",
@@ -208,11 +216,17 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
 
     return courses
 
+@app.on_event("startup")
+async def startup():
+    redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+
 @app.get("/")
 async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
+@cache(expire=300)  # Cache por 5 minutos
 async def get_courses():
     try:
         all_edges = []
