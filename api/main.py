@@ -9,6 +9,7 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
+import re
 
 app = FastAPI()
 
@@ -162,7 +163,8 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                     values = value.split(";")
                     nome = values[0]
                     carga = values[1] if " " not in values[1] else values[1].split(" ")[0]
-                    course.disciplinasIA = {"nome": nome, "carga": carga}
+                    carga = re.search(r'\d+', carga).group()
+                    course.disciplinasIA = {"nome": nome, "carga": int(carga)}
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do comitê":
