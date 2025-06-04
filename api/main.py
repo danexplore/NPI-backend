@@ -104,7 +104,10 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                     course.coordenadorSolicitante = value
 
             if field["name"] == "Nome do Curso":
-                course.nome = value
+                if "[" in value:
+                    course.nome = value.split("[")[0].strip()
+                else:
+                    course.nome = value.strip()
             elif field["name"] == "Apresentação IA":
                 course.apresentacao = value
             elif field["name"] == "Público Alvo IA":
@@ -164,7 +167,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
         coordenador_nomes = []
         for field in fields:
             if field["name"].strip().startswith("Coordenador") and field.get("native_value"):
-                coordenador_nomes.append(field["native_value"])
+                coordenador_nomes.append(field["native_value"].strip())
 
         # Busca informações detalhadas dos coordenadores
         coordenadores_info = {}
@@ -177,7 +180,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                 if not nome_field or not nome_field.get("value"):
                     continue
 
-                nome = nome_field["value"]
+                nome = nome_field["value"].strip()
                 minibiografia = next((f["value"] for f in coord_fields if f.get("name") == "Minibiografia"), "")
                 ja_e_coordenador = next((f["value"] == "Sim" for f in coord_fields if f.get("name") == "Já é coordenador da Unyleya?"), False)
 
