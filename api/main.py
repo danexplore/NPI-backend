@@ -10,6 +10,8 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
@@ -160,15 +162,23 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                 course.videoUrl = value
             elif field["name"] == "Disciplinas IA":
                 if value:
-                    values = value.split(";")
-                    nome = values[0]
-                    carga = values[1] if len(values) > 1 else "0"
-                    try:
-                        carga = re.search(r'\d+', carga).group()
-                    except AttributeError as e:
-                        print(f"Erro ao processar carga: {e}")
-                        carga = 0
-                    course.disciplinasIA = {"nome": nome, "carga": int(carga)}
+                    print(f"Processando Disciplinas IA: {value}")
+                    course.disciplinasIA = []
+                    values = value.split("\n")
+                    for value in values:
+                        print(f"Processando disciplina: {value}")
+                        values = value.split(";")
+                        nome = values[0]
+                        carga = values[1] if len(values) > 1 else "0"
+                        try:
+                            carga = re.search(r'\d+', carga).group()
+                        except AttributeError as e:
+                            print(f"Erro ao processar carga: {e}")
+                            carga = 0
+                        course.disciplinasIA.append({
+                            "nome": nome,
+                            "carga": int(carga)
+                        })
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do comitê":
@@ -229,7 +239,7 @@ async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
-@cache(expire=300)  # Cache por 5 minutos
+@cache(expire=2)  # Cache por 5 minutos
 async def get_courses():
     try:
         all_edges = []
