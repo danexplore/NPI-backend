@@ -10,6 +10,8 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
@@ -237,7 +239,7 @@ async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
-@cache(expire=300)  # Cache por 5 minutos
+@cache(expire=2)  # Cache por 5 minutos
 async def get_courses():
     try:
         all_edges = []
