@@ -32,8 +32,9 @@ class Course(BaseModel):
     performance: str
     videoUrl: str
     disciplinasIA: List[DisciplinaIA]
-    status: str
-    observacoesComite: str
+    status: Optional[str] = None
+    observacoesComite: Optional[str] = None
+    cargaHoraria: int
 
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None

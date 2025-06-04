@@ -96,7 +96,8 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
             videoUrl="",
             disciplinasIA=[],
             status="",
-            observacoesComite=""
+            observacoesComite="",
+            cargaHoraria=0  # Inicializa com 0
         )
 
         # Processa os campos principais
@@ -110,7 +111,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
             # Verifica se é um dos campos de coordenador solicitante
             if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
                 if value:
-                    course.coordenadorSolicitante = value
+                    course.coordenadorSolicitante = value.strip() if "[" not in value else value.split("[")[0].strip()
 
             if field["name"] == "Nome do Curso":
                 if "[" in value:
@@ -163,6 +164,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                     print(f"Processando Disciplinas IA: {value}")
                     course.disciplinasIA = []
                     values = value.split("\n")
+                    
                     for value in values:
                         print(f"Processando disciplina: {value}")
                         values = value.split(";")
@@ -177,6 +179,20 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                             "nome": nome,
                             "carga": int(carga)
                         })
+                        course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
+                        
+                        # Verifica se já existe alguma das disciplinas de desenvolvimento
+                        disciplinas_desenvolvimento = [
+                            "Desenvolvimento Profissional".lower(),
+                            "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
+                        ]
+                        if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
+                            # Adiciona a disciplina no início da lista
+                            course.disciplinasIA.insert(0, {
+                                "nome": "Desenvolvimento Profissional",
+                                "carga": 40
+                            })
+                            course.cargaHoraria += 40  # Atualiza a carga horária total
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do comitê":
@@ -186,7 +202,8 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
         coordenador_nomes = []
         for field in fields:
             if field["name"].strip().startswith("Coordenador") and field.get("native_value"):
-                coordenador_nomes.append(field["native_value"].strip())
+                value = field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
+                coordenador_nomes.append(value)
 
         # Busca informações detalhadas dos coordenadores
         coordenadores_info = {}
@@ -237,7 +254,7 @@ async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
-@cache(expire=300)  # Cache por 5 minutos
+@cache(expire=2)  # Cache por 5 minutos
 async def get_courses():
     try:
         all_edges = []
