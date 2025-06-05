@@ -105,7 +105,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
         for field in fields:
             if not field.get("name"):
                 print(f"Estrutura de campo inválida: nome ausente {json.dumps(field)}")
-                continue
+                raise ValueError("Campo sem nome encontrado na resposta da API")
 
             value = field.get("native_value", "").strip() or ""
 
