@@ -198,7 +198,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                             course.cargaHoraria += 40  # Atualiza a carga horária total
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
-            elif field["name"] == "Observações do comitê":
+            elif field["name"] == "Observações do Comitê":
                 course.observacoesComite = value
 
         # Coleta nomes dos coordenadores
