@@ -23,6 +23,7 @@ class Coordenador(BaseModel):
 
 class Course(BaseModel):
     id: str
+    slug: str
     nome: str
     coordenadorSolicitante: str
     coordenadores: List[Coordenador]

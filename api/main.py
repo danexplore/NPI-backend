@@ -86,6 +86,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
         # Inicializa o objeto do curso
         course = Course(
             id=edge["node"]["id"],
+            slug="",
             nome="",
             coordenadorSolicitante="Sem coordenador",
             coordenadores=[],
@@ -109,6 +110,8 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
             value = field.get("native_value", "").strip() or ""
 
             # Verifica se é um dos campos de coordenador solicitante
+            if field["name"] == "curso-slug":
+                course.slug = value.strip()
             if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
                 if value:
                     course.coordenadorSolicitante = value.strip() if "[" not in value else value.split("[")[0].strip()
@@ -372,7 +375,7 @@ async def update_course_status(course_update: CourseUpdate):
     except Exception as error:
         print(f"Erro ao atualizar dados do curso: {error}")
         raise HTTPException(status_code=500, detail="Falha ao atualizar dados do curso")
-
+    
 @app.post("/refresh-courses")
 async def refresh_courses():
     """Clear cached course data and fetch fresh information."""
