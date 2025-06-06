@@ -132,6 +132,7 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=401, detail="Senha incorreta")
     
     payload = {
+        "id": user.id,
         "email": request.email,
         "name": user.nome,
         "role": user.permissao,
@@ -158,12 +159,10 @@ async def verify_token(request: TokenRequest):
     try:
         payload = jwt.decode(request.token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"])
         return {
-            "valid": True,
-            "user": {
-                "email": payload['email'],
-                "name": payload['name'],
-                "role": payload['role']
-            }
+            "id": payload['id'],
+            "email": payload['email'],
+            "name": payload['name'],
+            "role": payload['role']
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")

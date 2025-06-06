@@ -10,7 +10,7 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
-from .utils.login import fetch_users_from_pipefy, create_password_hash, login
+from .utils.login import fetch_users_from_pipefy, create_password_hash, login, verify_token
 
 async def lifespan(app: FastAPI):
     # Configuração do Redis
@@ -403,3 +403,7 @@ async def get_users():
 @app.post("/api/password-hash")
 async def hash_password(password: str, card_id: int):
     return await create_password_hash(password, card_id)
+
+@app.post("/api/verify-token")
+async def verify_user_token(token: str):
+    return await verify_token(token)
