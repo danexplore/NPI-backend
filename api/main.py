@@ -10,9 +10,7 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
-from dotenv import load_dotenv
 from .utils.login import fetch_users_from_pipefy, create_password_hash, login
-load_dotenv()
 
 async def lifespan(app: FastAPI):
     # Configuração do Redis
