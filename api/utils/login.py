@@ -91,12 +91,7 @@ async def fetch_users_from_pipefy():
                         elif field_id == "permiss_o":
                             user.permissao = value
                         elif field_id == "card_id":
-                            user.card_id = int(value) if value else 0
-                            if user.card_id == 0:
-                                raise HTTPException(
-                                    status_code=400,
-                                    detail="ID do cartão não pode ser zero"
-                                )
+                            user.card_id = int(value)
 
                     all_users[user.id] = user
 
