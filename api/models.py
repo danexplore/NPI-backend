@@ -55,3 +55,4 @@ class User(BaseModel):
     email: str
     password: str
     permissao: str
+    card_id: int
