@@ -393,7 +393,7 @@ async def refresh_courses():
     return courses
 
 @app.post("/api/login")
-async def login(request: LoginRequest):
+async def validate_login(request: LoginRequest):
     return await login(request)
 
 @app.get("/api/users")
@@ -401,5 +401,5 @@ async def get_users():
     return await fetch_users_from_pipefy()
 
 @app.post("/api/password-hash")
-async def create_password_hash(password: str, card_id: int):
+async def hash_password(password: str, card_id: int):
     return await create_password_hash(password, card_id)
