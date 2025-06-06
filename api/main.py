@@ -394,7 +394,7 @@ async def refresh_courses():
 
 @app.post("/api/login")
 async def login(request: LoginRequest):
-    await login(request)
+    return await login(request)
 
 @app.get("/api/users")
 async def get_users():
