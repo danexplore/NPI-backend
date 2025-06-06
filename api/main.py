@@ -164,7 +164,6 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                         else:
                             raise ValueError("Valor analisado não é uma lista")
                     except Exception as error:
-                        print(f"Erro ao analisar Concorrentes IA: {error}")
                         course.concorrentesIA = [{
                             "instituicao": "Erro ao processar",
                             "curso": "Erro ao processar",
@@ -177,19 +176,16 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                 course.videoUrl = value
             elif field["name"] == "Disciplinas IA":
                 if value:
-                    print(f"Processando Disciplinas IA: {value}")
                     course.disciplinasIA = []
                     values = value.split("\n")
                     
                     for value in values:
-                        print(f"Processando disciplina: {value}")
                         values = value.split(";")
                         nome = values[0]
                         carga = values[1] if len(values) > 1 else "0"
                         try:
                             carga = re.search(r'\d+', carga).group()
                         except AttributeError as e:
-                            print(f"Erro ao processar carga: {e}")
                             carga = 0
                         course.disciplinasIA.append({
                             "nome": nome,
