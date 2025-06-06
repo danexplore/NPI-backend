@@ -10,7 +10,7 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
-from .utils.login import fetch_users_from_pipefy, create_password_hash, login, verify_token
+from .utils.login import *
 
 async def lifespan(app: FastAPI):
     # Configuração do Redis
@@ -185,7 +185,7 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                         carga = values[1] if len(values) > 1 else "0"
                         try:
                             carga = re.search(r'\d+', carga).group()
-                        except AttributeError as e:
+                        except AttributeError:
                             carga = 0
                         course.disciplinasIA.append({
                             "nome": nome,
@@ -193,18 +193,18 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
                         })
                         course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
                         
-                        # Verifica se já existe alguma das disciplinas de desenvolvimento
-                        disciplinas_desenvolvimento = [
-                            "Desenvolvimento Profissional".lower(),
-                            "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
-                        ]
-                        if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
-                            # Adiciona a disciplina no início da lista
-                            course.disciplinasIA.insert(0, {
-                                "nome": "Desenvolvimento Profissional",
-                                "carga": 40
-                            })
-                            course.cargaHoraria += 40  # Atualiza a carga horária total
+                    # Verifica se já existe alguma das disciplinas de desenvolvimento
+                    disciplinas_desenvolvimento = [
+                        "Desenvolvimento Profissional".lower(),
+                        "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
+                    ]
+                    if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
+                        # Adiciona a disciplina no início da lista
+                        course.disciplinasIA.insert(0, {
+                            "nome": "Desenvolvimento Profissional",
+                            "carga": 40
+                        })
+                        course.cargaHoraria += 40  # Atualiza a carga horária total
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do Comitê":
@@ -403,3 +403,19 @@ async def hash_password(password: str, card_id: int):
 @app.post("/api/verify-token")
 async def verify_user_token(token: str):
     return await verify_token(token)
+
+@app.post("/api/reset-code")
+async def send_reset_code(email: str, card_id: int):
+    return await reset_code(card_id, email)
+
+@app.post("/api/reset-password")
+async def reset_user_password(user_id: str, new_password: str):
+    return await reset_password(user_id, new_password)
+
+@app.post("/api/forgot-password")
+async def user_forgot_password(email: str):
+    return await forgot_password(email)
+
+@app.post("/api/verify-password")
+async def verify_user_password(password: str, hashed_password: str):
+    return await verify_password(password, hashed_password)

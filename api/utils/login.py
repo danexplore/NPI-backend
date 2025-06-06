@@ -207,9 +207,9 @@ async def create_password_hash(password: str, card_id: int):
                 detail="Erro ao gerar senha: " + response.text
             )   
         
-async def reset_password(record_id: int, new_password: str):
-    if not record_id:
-        raise HTTPException(status_code=400, detail="ID do registro não pode ser vazio")
+async def reset_password(user_id: str, new_password: str):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="ID do usuário não pode ser vazio")
     if not new_password:
         raise HTTPException(status_code=400, detail="Nova senha não pode ser vazia")
     
@@ -217,14 +217,16 @@ async def reset_password(record_id: int, new_password: str):
     
     query = """
     mutation {
-        updateCardField(input: {card_id: %d, field_id: "senha", new_value: "%s"}) {
-            card {
+        setTableRecordFieldValue(
+            input: {table_record_id: %d, field_id: "senha", value: "%s"}
+        ) {
+            table_record {
                 id
             }
         }
     }
-    """ % (record_id, hashed_password)
-    
+    """ % (int(user_id), hashed_password)
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             API_URL,
@@ -241,3 +243,175 @@ async def reset_password(record_id: int, new_password: str):
                 status_code=response.status_code,
                 detail="Erro ao redefinir senha: " + response.text
             )
+
+async def reset_code(card_id: int, email: str):
+    if not email:
+        raise HTTPException(status_code=400, detail="Email não pode ser vazio")
+    import random
+    def generate_six_digit_code() -> str:
+        return str(random.randint(100000, 999999))
+    if not card_id:
+        raise HTTPException(status_code=400, detail="ID do cartão não pode ser vazio")
+    
+    code = generate_six_digit_code()
+
+    template = f"""<!-- TEMPLATE PADRÃO UNYLEYA – CÓDIGO DE REDEFINIÇÃO DE SENHA -->
+        <table style="font-family: Arial, sans-serif; color:#333; background-color:#993366; width:100%; border-radius:12px;" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center">
+
+            <!-- LOGO PRINCIPAL -->
+            <p style="margin:2px 0 8px;">
+                <img 
+                src="https://app.pipefy.com/storage/v1/signed/orgs/55fd8109-fcfb-48e6-a8fc-3238acfa782d/uploads/88f185dd-ba45-4c1c-94c0-614b7b4cabc3/Light%20Logo%20Unyleya.png?signature=Nt%2ByXlzeOzvyniaDoTKnMToOnE9VFB0UgJrYh75zkzw%3D" 
+                alt="Logo Unyleya" width="112" height="41" 
+                style="display:block;margin:0 auto;">
+            </p>
+
+            <!-- FAIXA DE TÍTULO -->
+            <table width="85%" style="background-color:#ed7d31;border-radius:12px 12px 0 0;" cellpadding="10">
+                <tr>
+                <td align="center">
+                    <h1 style="margin:0;color:#ffffff;">Código de Redefinição de Senha</h1>
+                </td>
+                </tr>
+            </table>
+
+            <!-- CORPO DO E-MAIL -->
+            <table width="85%" style="background-color:#ffffff;border:1px solid #dddddd;border-radius:0 0 12px 12px;margin-bottom:20px;" cellpadding="20">
+                <tr>
+                <td>
+
+                    <!-- SAUDAÇÃO -->
+                    <p style="font-size:16px;">Prezado(a),</p>
+
+                    <!-- CÓDIGO -->
+                    <p style="font-size:16px;">Seu código de redefinição de senha é: <strong>{code}</strong></p>
+
+                    <p style="font-size:16px;">Utilize este código para concluir o processo de recuperação de senha. Caso não tenha solicitado, desconsidere este e-mail.</p>
+
+                </td>
+                </tr>
+            </table>
+
+            </td>
+        </tr>
+        </table>
+
+        <hr style="margin:20px 0;border:none;border-top:1px solid #dddddd;">
+
+        <!-- RODAPÉ INSTITUCIONAL -->
+        <p style="font-family:Arial, sans-serif;font-size:14px;color:#333;">Se precisar de ajuda, responda este e-mail ou escreva para
+        <a href="mailto:novos.projetos@unyleya.com.br" style="color:#748396;text-decoration:underline;">novos.projetos@unyleya.com.br</a>.
+        </p>
+
+        <p style="font-family:Arial, sans-serif;font-size:16px;color:#ed7d31;font-weight:bold;margin:4px 0;">Novos Projetos</p>
+        <p style="font-family:Arial, sans-serif;font-size:12px;color:#833c0b;margin:4px 0;">
+        SCN Quadra&nbsp;1, Bloco&nbsp;D, 1º Andar, Sala&nbsp;122 – Brasília/DF
+        </p>
+
+        <p style="margin:10px 0;">
+        <img 
+            src="https://app.pipefy.com/storage/v1/signed/orgs/55fd8109-fcfb-48e6-a8fc-3238acfa782d/uploads/7110d2b1-a536-42bd-97f7-62e6f8ebe3cd/Uny%20logo%20assinatura.png?signature=%2BhJ1DDjGlR6798bRoLmtFmOLywpPYkzC%2BQV2rFQlnnM%3D" 
+            alt="Logo Unyleya" width="300">
+        </p>
+
+        <p style="color:#748396;font-size:10px;">Este e-mail foi enviado automaticamente.</p>
+    """
+
+    # 1. Escapa as aspas internas para usar uma string normal
+    escaped_html = template.replace('\n', '').replace('"', '\\"')
+
+    query = f"""
+    mutation {{
+    createInboxEmail(
+        input: {{
+        repo_id: 305896989,
+        card_id: {card_id},
+        from: "novos.projetos@unyleya.com.br",
+        fromName: "Novos Projetos - Unyleya",
+        to: "{email}",
+        subject: "Interface NP - Código de Redefinição de Senha: {code}",
+        html: "{escaped_html}"
+        }}
+    ) {{
+        inbox_email {{
+        id
+        }}
+    }}
+    }}
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            API_URL,
+            headers=HEADERS,
+            json={"query": query}
+        )
+        if response.status_code == 200:
+            email_id = response.json()["data"]["createInboxEmail"]["inbox_email"]["id"]
+            if not email_id:
+                raise HTTPException(status_code=500, detail="Erro ao criar e-mail no Pipefy")
+
+            query_send = f"""
+            mutation {{
+              sendInboxEmail(input: {{
+                id: "{email_id}"
+              }}) {{
+                success
+              }}
+            }}
+            """
+            response_send = await client.post(
+                API_URL,
+                headers=HEADERS,
+                json={"query": query_send}
+            )
+            if response_send.status_code == 200:
+                return {
+                    "success": True,
+                    "message": "Código enviado com sucesso para o email.",
+                    "code": code,
+                    "response": response_send.json()
+                }
+            else:
+                raise HTTPException(
+                    status_code=response_send.status_code,
+                    detail="Erro ao enviar o email: " + response_send.text
+                )
+            
+        else:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Erro ao enviar o código: " + response.text
+            )
+
+async def forgot_password(email: str):
+    # first check if the user exists
+    users = await fetch_users_from_pipefy()
+    if not users:
+        raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
+    
+    def get_user_by_email(email: str) -> User:
+        for user in users.values():
+            if user.email == email:
+                return user
+        return None
+    user = get_user_by_email(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    user_id = user.id
+    card_id = user.card_id
+    user_password = user.password
+
+    reset_code_response = await reset_code(card_id, email)
+    if not reset_code_response.get("success"):
+        raise HTTPException(status_code=500, detail="Erro ao enviar o código de redefinição de senha")
+    code = reset_code_response.get("code")
+    return {
+        "success": True,
+        "message": "Código de redefinição de senha enviado com sucesso.",
+        "code": code,
+        "userId": user_id,
+        "userPassword": user_password
+    }
