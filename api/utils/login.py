@@ -109,9 +109,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 async def login(request: LoginRequest):
-    users
-    if not users:
-        users = await fetch_users_from_pipefy()
+    users = await fetch_users_from_pipefy()
     if not users:
         raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
 
@@ -143,6 +141,7 @@ async def login(request: LoginRequest):
         "success": True,
         "token": token,
         "user": {
+            "id": user.id,
             "email": request.email,
             "name": user.nome,
             "role": user.permissao
@@ -204,4 +203,39 @@ async def create_password_hash(password: str, card_id: int):
             raise HTTPException(
                 status_code=response.status_code,
                 detail="Erro ao gerar senha: " + response.text
+            )
+        
+async def reset_password(card_id: int, new_password: str):
+    if not card_id:
+        raise HTTPException(status_code=400, detail="ID do cartão não pode ser vazio")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="Nova senha não pode ser vazia")
+    
+    hashed_password = hash_password(new_password)
+    
+    query = """
+    mutation {
+        updateCardField(input: {card_id: %d, field_id: "senha", new_value: "%s"}) {
+            card {
+                id
+            }
+        }
+    }
+    """ % (card_id, hashed_password)
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            API_URL,
+            headers=HEADERS,
+            json={"query": query}
+        )
+        if response.status_code == 200:
+            return {
+                "success": True,
+                "message": "Senha redefinida com sucesso."
+            }
+        else:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Erro ao redefinir senha: " + response.text
             )
