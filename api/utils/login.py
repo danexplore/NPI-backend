@@ -28,7 +28,7 @@ async def fetch_users_from_pipefy():
                 id
                 record_fields {
                     name
-                    native_value
+                    value
                     field {
                         id
                     }
@@ -47,7 +47,8 @@ async def fetch_users_from_pipefy():
         nome="",
         email="",
         password="",
-        permissao=""
+        permissao="",
+        card_id=0
     )
 
     try:
@@ -89,6 +90,13 @@ async def fetch_users_from_pipefy():
                             user.password = value
                         elif field_id == "permiss_o":
                             user.permissao = value
+                        elif field_id == "card_id":
+                            user.card_id = int(value) if value else 0
+                            if user.card_id == 0:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail="ID do cartão não pode ser zero"
+                                )
 
                     all_users[user.id] = user
 
@@ -203,11 +211,11 @@ async def create_password_hash(password: str, card_id: int):
             raise HTTPException(
                 status_code=response.status_code,
                 detail="Erro ao gerar senha: " + response.text
-            )
+            )   
         
-async def reset_password(card_id: int, new_password: str):
-    if not card_id:
-        raise HTTPException(status_code=400, detail="ID do cartão não pode ser vazio")
+async def reset_password(record_id: int, new_password: str):
+    if not record_id:
+        raise HTTPException(status_code=400, detail="ID do registro não pode ser vazio")
     if not new_password:
         raise HTTPException(status_code=400, detail="Nova senha não pode ser vazia")
     
@@ -221,7 +229,7 @@ async def reset_password(card_id: int, new_password: str):
             }
         }
     }
-    """ % (card_id, hashed_password)
+    """ % (record_id, hashed_password)
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
