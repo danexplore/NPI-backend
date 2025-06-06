@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
+# Modelos Pydantic para validação de dados
 class CourseUpdate(BaseModel):
     courseId: str
     status: Optional[str] = None
@@ -39,3 +40,18 @@ class Course(BaseModel):
 
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
+
+# Modelos para requisições de login e token
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class TokenRequest(BaseModel):
+    token: str
+
+class User(BaseModel):
+    id: int
+    nome: str
+    email: str
+    password: str
+    permissao: str

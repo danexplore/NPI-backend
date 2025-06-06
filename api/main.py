@@ -4,14 +4,27 @@ import os
 import httpx
 from typing import Dict
 import json
-from .models import Course, ApiResponse, CourseUpdate
+from .models import Course, ApiResponse, CourseUpdate, LoginRequest
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
 import re
+from .utils.login import fetch_users_from_pipefy, create_password_hash, login
 
-app = FastAPI()
+async def lifespan(app: FastAPI):
+    # Configuração do Redis
+    redis = aioredis.from_url(REDIS_URL, decode_responses=True)
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    
+    # Inicializa os usuários do Pipefy
+    global users
+    users = await fetch_users_from_pipefy()
+    if not users:
+        raise HTTPException(status_code=500, detail="Erro ao buscar usuários do Pipefy")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -247,11 +260,6 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
 
     return courses
 
-@app.on_event("startup")
-async def startup():
-    redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
-    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
-
 @app.get("/")
 async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
@@ -305,16 +313,16 @@ async def get_courses():
         print(f"Erro ao buscar dados do Pipefy: {error}")
         raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
 
-UPDATE_CARD_FIELD_MUTATION = """
-mutation UpdateCardField($input: UpdateCardFieldInput!) {
-    updateCardField(input: $input) {
-        success
-    }
-}
-"""
 
 @app.post("/update-course-status")
 async def update_course_status(course_update: CourseUpdate):
+    UPDATE_CARD_FIELD_MUTATION = """
+    mutation UpdateCardField($input: UpdateCardFieldInput!) {
+        updateCardField(input: $input) {
+            success
+        }
+    }
+    """
     if not course_update.courseId:
         raise HTTPException(status_code=400, detail="Course ID é obrigatório")
 
@@ -383,3 +391,15 @@ async def refresh_courses():
     # call the underlying function without cache decorator context
     courses = await get_courses.__wrapped__()
     return courses
+
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    await login(request)
+
+@app.get("/api/users")
+async def get_users():
+    return await fetch_users_from_pipefy()
+
+@app.post("/api/password-hash")
+async def create_password_hash(password: str, card_id: int):
+    return await create_password_hash(password, card_id)
