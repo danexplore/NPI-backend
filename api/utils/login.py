@@ -81,7 +81,7 @@ async def fetch_users_from_pipefy():
                     user.id = node.get("id")
                     for field in node.get("record_fields", []):
                         field_id = field.get("field", {}).get("id")
-                        value = field.get("native_value")
+                        value = field.get("value")
                         if field_id == "email":
                             user.email = value
                         elif field_id == "nome_completo":
