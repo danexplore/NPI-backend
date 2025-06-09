@@ -117,45 +117,48 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return {"is_same": is_same}
 
 async def login(email: str, password: str):
-    users = await fetch_users_from_pipefy()
-    if not users:
-        raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
+    try:
+        users = await fetch_users_from_pipefy()
+        if not users:
+            raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
 
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
-    
-    def get_user_by_email(email: str) -> User:
-        for user in users.values():
-            if user.email == email:
-                return user
-        return None
-    user = get_user_by_email(email)
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado")
-    if not verify_password(password, user.password).get("is_same", False):
-        raise HTTPException(status_code=401, detail="Senha incorreta")
-    
-    payload = {
-        "id": user.id,
-        "email": email,
-        "name": user.nome,
-        "role": user.permissao,
-        "exp": datetime.now(UTC) + timedelta(days=7)
-    }
-
-    token = jwt.encode(payload, os.getenv("JWT_SECRET_KEY"), algorithm="HS256")
-    
-    return {
-        "success": True,
-        "token": token,
-        "user": {
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
+        
+        def get_user_by_email(email: str) -> User:
+            for user in users.values():
+                if user.email == email:
+                    return user
+            return None
+        user = get_user_by_email(email)
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuário não encontrado")
+        if not verify_password(password, user.password).get("is_same", False):
+            raise HTTPException(status_code=401, detail="Senha incorreta")
+        
+        payload = {
             "id": user.id,
             "email": email,
             "name": user.nome,
-            "role": user.permissao
+            "role": user.permissao,
+            "exp": datetime.now(UTC) + timedelta(days=7)
         }
-    }
+
+        token = jwt.encode(payload, os.getenv("JWT_SECRET_KEY"), algorithm="HS256")
+        
+        return {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user.id,
+                "email": email,
+                "name": user.nome,
+                "role": user.permissao
+            }
+        }
+    except Exception as e:
+        return {"error": f"Erro ao realizar o login.", "message": e.detail}
 
 async def verify_token(token: str):
     if not token:
