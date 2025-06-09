@@ -1,11 +1,15 @@
 from fastapi import HTTPException
 import jwt
 from datetime import datetime, timedelta, UTC
-from ..models import LoginRequest, TokenRequest, User
+from ..models import User
 from typing import Dict
 import os
 import bcrypt
 import httpx
+from dotenv import load_dotenv
+
+if os.getenv("ENVIRONMENT") == "development":
+    load_dotenv()
 
 API_URL = "https://api.pipefy.com/graphql"
 PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
@@ -109,14 +113,15 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    is_same = bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    return {"is_same": is_same}
 
-async def login(request: LoginRequest):
+async def login(email: str, password: str):
     users = await fetch_users_from_pipefy()
     if not users:
         raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
 
-    if not request.email or not request.password:
+    if not email or not password:
         raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
     
     def get_user_by_email(email: str) -> User:
@@ -124,16 +129,16 @@ async def login(request: LoginRequest):
             if user.email == email:
                 return user
         return None
-    user = get_user_by_email(request.email)
+    user = get_user_by_email(email)
     
     if not user:
         raise HTTPException(status_code=401, detail="Usuário não encontrado")
-    if not verify_password(request.password, user.password):
+    if not verify_password(password, user.password).get("is_same", False):
         raise HTTPException(status_code=401, detail="Senha incorreta")
     
     payload = {
         "id": user.id,
-        "email": request.email,
+        "email": email,
         "name": user.nome,
         "role": user.permissao,
         "exp": datetime.now(UTC) + timedelta(days=7)
@@ -146,18 +151,18 @@ async def login(request: LoginRequest):
         "token": token,
         "user": {
             "id": user.id,
-            "email": request.email,
+            "email": email,
             "name": user.nome,
             "role": user.permissao
         }
     }
 
-async def verify_token(request: TokenRequest):
-    if not request.token:
+async def verify_token(token: str):
+    if not token:
         raise HTTPException(status_code=400, detail="Token não fornecido")
     
     try:
-        payload = jwt.decode(request.token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"])
+        payload = jwt.decode(token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"])
         return {
             "id": payload['id'],
             "email": payload['email'],
@@ -197,9 +202,14 @@ async def create_password_hash(password: str, card_id: int):
             json={"query": query}
         )
         if response.status_code == 200:
+            if "errors" in response.json():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Erro ao atualizar senha: " + str(response.json()["errors"][0]["message"])
+                )
             return {
                 "success": True,
-                "message": "Senha gerada com sucesso. Verifique seu email.",
+                "message": "Senha gerada com sucesso. Verifique seu email."
             }
         else:
             raise HTTPException(
@@ -215,17 +225,17 @@ async def reset_password(user_id: str, new_password: str):
     
     hashed_password = hash_password(new_password)
     
-    query = """
-    mutation {
+    query = f"""
+    mutation {{
         setTableRecordFieldValue(
-            input: {table_record_id: %d, field_id: "senha", value: "%s"}
-        ) {
-            table_record {
+            input: {{table_record_id: "{user_id}", field_id: "senha", value: "{hashed_password}"}}
+        ) {{
+            table_record {{
                 id
-            }
-        }
-    }
-    """ % (int(user_id), hashed_password)
+            }}
+        }}
+    }}
+    """
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -348,9 +358,11 @@ async def reset_code(card_id: int, email: str):
             json={"query": query}
         )
         if response.status_code == 200:
+            if "Acesso negado" in response.text:
+                raise HTTPException(status_code=400, detail="Não foi possivel criar o e-mail no Pipefy. Revise o 'card_id', se realmente existe no pipe")
             email_id = response.json()["data"]["createInboxEmail"]["inbox_email"]["id"]
             if not email_id:
-                raise HTTPException(status_code=500, detail="Erro ao criar e-mail no Pipefy")
+                raise HTTPException(status_code=500, detail="Erro ao criar e-mail no Pipefy, id do e-mail não identificado")
 
             query_send = f"""
             mutation {{

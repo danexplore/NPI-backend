@@ -4,3 +4,4 @@ api/*pycache*
 .env
 teste.py
 tests/
+api/utils/__pycache__

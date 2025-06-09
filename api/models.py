@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 # Modelos Pydantic para validação de dados
 class CourseUpdate(BaseModel):
     courseId: str
-    status: Optional[str] = None
+    status: str
     observations: Optional[str] = None
 
 class ConcorrenteIA(BaseModel):
@@ -15,7 +15,7 @@ class ConcorrenteIA(BaseModel):
 
 class DisciplinaIA(BaseModel):
     nome: str
-    carga: int
+    carga: str
 
 class Coordenador(BaseModel):
     nome: str
@@ -41,14 +41,7 @@ class Course(BaseModel):
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
 
-# Modelos para requisições de login e token
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-class TokenRequest(BaseModel):
-    token: str
-
+# Modelos de Auth
 class User(BaseModel):
     id: int
     nome: str
