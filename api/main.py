@@ -101,5 +101,14 @@ async def verify_user_password(password: str, hashed_password: str):
     return verify_password(password, hashed_password)
 
 @app.get("/courses-ymed")
-async def get_ymed_courses():
+@cache(expire=300)
+async def get_ymed_courses_data():
     return await get_courses_ymed()
+
+@app.get("/refresh-courses-ymed")
+async def refresh_courses():
+    """Clear cached course data and fetch fresh information."""
+    await FastAPICache.clear()
+    # call the underlying function without cache decorator context
+    courses = await get_ymed_courses_data.__wrapped__()
+    return courses
