@@ -22,8 +22,9 @@ class Coordenador(BaseModel):
     minibiografia: str
     jaECoordenador: bool
 
-class Course(BaseModel):
+class CourseUnyleya(BaseModel):
     id: str
+    entity: str
     slug: str
     nome: str
     coordenadorSolicitante: str
@@ -37,6 +38,22 @@ class Course(BaseModel):
     status: Optional[str] = None
     observacoesComite: Optional[str] = None
     cargaHoraria: int
+
+class CourseYMED(BaseModel):
+    id: str
+    entity: str
+    slug: str
+    nomeDoCurso: str
+    justificativaIntroducao: str
+    lacunaFormacaoGap: str
+    propostaCurso: str
+    publicoAlvo: str
+    conteudoProgramatico: str
+    mercado: str
+    diferencialCurso: str
+    observacoesGerais: str
+    status: Optional[str] = None
+    observacoesComite: Optional[str] = None
 
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None

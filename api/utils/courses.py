@@ -4,7 +4,7 @@ import httpx
 from typing import Dict
 import json
 import re
-from ..models import Course, ApiResponse, CourseUpdate
+from ..models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
 
@@ -23,8 +23,8 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:    
-    courses: Dict[str, Course] = {}
+def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUnyleya]:    
+    courses: Dict[str, CourseUnyleya] = {}
     
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
     for edge in edges:
@@ -36,8 +36,9 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
         child_relations = edge["node"].get("child_relations", [])
 
         # Inicializa o objeto do curso
-        course = Course(
+        course = CourseUnyleya(
             id=edge["node"]["id"],
+            entity="Unyleya",
             slug="",
             nome="",
             coordenadorSolicitante="Sem coordenador",
@@ -195,7 +196,53 @@ def parse_api_response(api_response: ApiResponse) -> Dict[str, Course]:
 
     return courses
 
-async def get_courses():
+def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
+    courses = {}
+    edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
+    for edge in edges:
+        node = edge.get("node", {})
+        fields = node.get("fields", [])
+        field_map = {f.get("name"): f.get("native_value") for f in fields}
+        print(field_map)
+        course = CourseYMED(
+            id=node.get("id"),
+            entity="YMED",
+            slug="",
+            nomeDoCurso=field_map.get("Nome do Curso"),
+            justificativaIntroducao=field_map.get("Justificativa/Introdução"),
+            lacunaFormacaoGap=field_map.get("Lacuna de Formação (Gap)"),
+            propostaCurso=field_map.get("Proposta do Curso"),
+            publicoAlvo=field_map.get("Público-Alvo"),
+            conteudoProgramatico=field_map.get("Conteúdo Programático"),
+            mercado=field_map.get("Mercado"),
+            diferencialCurso=field_map.get("Diferencial do Curso"),
+            observacoesGerais=field_map.get("Observações Gerais"),
+            status="",
+            observacoesComite=""
+        )
+        # Gera o slug do curso
+        
+        def get_slug(nome_do_curso: str):
+            # Converte para minúsculas e remove acentos usando regex
+            slug = nome_do_curso.lower()
+            slug = re.sub(r'[áàãâ]', 'a', slug)
+            slug = re.sub(r'[éê]', 'e', slug)
+            slug = re.sub(r'[í]', 'i', slug)
+            slug = re.sub(r'[óôõ]', 'o', slug)
+            slug = re.sub(r'[ú]', 'u', slug)
+            slug = re.sub(r'[ç]', 'c', slug)
+            # Substitui espaços e caracteres especiais por hífen
+            slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+            slug = re.sub(r'\s+', '-', slug)
+            # Remove hífens duplicados e limpa início/fim
+            slug = re.sub(r'-+', '-', slug).strip('-')
+            return slug
+
+        course.slug = get_slug(course.nomeDoCurso)
+        courses[course.slug] = course
+    return courses
+
+async def get_courses_unyleya():
     QUERY = """
     {
     phase(id:"333225221") {
@@ -272,11 +319,51 @@ async def get_courses():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response(api_response)
+        return parse_api_response_unyleya(api_response)
 
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
         raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
+    
+async def get_courses_ymed():
+    QUERY = """
+    {\n  phase(id: \"339017044\") {\n    cards_count\n    cards(first: 50) {\n      pageInfo {\n        hasNextPage\n        startCursor\n        endCursor\n      }\n      edges {\n        node {\n          id\n          fields {\n            name\n            native_value\n            field {\n              label\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n}\n    """
+    try:
+        all_edges = []
+        cursor = None
+        has_next_page = True
+        async with httpx.AsyncClient() as client:
+            while has_next_page:
+                paginated_query = QUERY
+                if cursor:
+                    paginated_query = QUERY.replace(
+                        'cards(first: 50)', f'cards(first: 50, after: "{cursor}")'
+                    )
+                response = await client.post(
+                    API_URL,
+                    headers=HEADERS,
+                    json={"query": paginated_query}
+                )
+                if not response.is_success:
+                    raise HTTPException(status_code=response.status_code, detail="Erro na requisição ao Pipefy")
+                payload = response.json().get("data", {}).get("phase", {}).get("cards", {})
+                edges = payload.get("edges", [])
+                page_info = payload.get("pageInfo", {})
+                all_edges.extend(edges)
+                has_next_page = page_info.get("hasNextPage", False)
+                cursor = page_info.get("endCursor")
+        nested_data = {
+            "phase": {
+                "cards": {
+                    "edges": all_edges
+                }
+            }
+        }
+        api_response = ApiResponse(data=nested_data)
+        return parse_api_response_ymed(api_response)
+    except Exception as error:
+        print(f"Erro ao buscar dados do Pipefy: {error}")
+        raise HTTPException(status_code=500, detail="Falha ao buscar cursos YMED")
 
 async def update_course_status(course_update: CourseUpdate):
     UPDATE_CARD_FIELD_MUTATION = """

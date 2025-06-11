@@ -49,7 +49,7 @@ async def root():
 @app.get("/courses")
 @cache(expire=300)  # Cache por 5 minutos
 async def get_courses_data():
-    return await get_courses()
+    return await get_courses_unyleya()
 
 @app.post("/update-course-status")
 async def update_course_status_after_comite(courseId: str, status: str, observations: str):
@@ -99,3 +99,7 @@ async def user_forgot_password(email: str):
 @app.post("/api/verify-password")
 async def verify_user_password(password: str, hashed_password: str):
     return verify_password(password, hashed_password)
+
+@app.get("/courses-ymed")
+async def get_ymed_courses():
+    return await get_courses_ymed()
