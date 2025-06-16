@@ -120,7 +120,7 @@ async def login(email: str, password: str):
     try:
         users = await fetch_users_from_pipefy()
         if not users:
-            raise HTTPException(status_code=500, detail="Erro ao buscar usuários")
+            raise HTTPException(status_code=500, detail="Erro ao buscar usuário, tente novamente.\nCaso o erro persista entre em contato com o suporte.\nnovos.projetos@unyleya.com.br")
 
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email e senha são obrigatórios")
@@ -133,7 +133,7 @@ async def login(email: str, password: str):
         user = get_user_by_email(email)
         
         if not user:
-            raise HTTPException(status_code=401, detail="Usuário não encontrado")
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
         if not verify_password(password, user.password).get("is_same", False):
             raise HTTPException(status_code=401, detail="Senha incorreta")
         
@@ -158,7 +158,7 @@ async def login(email: str, password: str):
             }
         }
     except Exception as e:
-        return {"error": f"Erro ao realizar o login.", "message": e.detail}
+        raise HTTPException(status_code=500, detail=e.detail)
 
 async def verify_token(token: str):
     if not token:
