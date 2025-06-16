@@ -203,7 +203,6 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
         node = edge.get("node", {})
         fields = node.get("fields", [])
         field_map = {f.get("name"): f.get("native_value") for f in fields}
-        print(field_map)
         course = CourseYMED(
             id=node.get("id"),
             entity="YMED",
