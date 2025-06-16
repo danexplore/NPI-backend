@@ -177,16 +177,14 @@ async def verify_token(token: str):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-async def create_password_hash(password: str, card_id: int):
-    plain_password = password
-    
+async def create_password_hash(password: str, card_id: int): 
     if not password:
         raise HTTPException(status_code=400, detail="Senha não pode ser vazia")
     if not card_id:
         raise HTTPException(status_code=400, detail="ID do cartão não pode ser vazio")
     
     # Criptografar a senha
-    hashed_password = hash_password(plain_password)
+    hashed_password = hash_password(password)
     
     query = """
     mutation {
@@ -219,7 +217,12 @@ async def create_password_hash(password: str, card_id: int):
                 status_code=response.status_code,
                 detail="Erro ao gerar senha: " + response.text
             )   
-        
+
+async def create_code_hash(code: str):
+    hashed_code = hash_password(code)
+
+    return hashed_code
+
 async def reset_password(user_id: str, new_password: str):
     if not user_id:
         raise HTTPException(status_code=400, detail="ID do usuário não pode ser vazio")
@@ -385,7 +388,7 @@ async def reset_code(card_id: int, email: str):
                 return {
                     "success": True,
                     "message": "Código enviado com sucesso para o email.",
-                    "code": code,
+                    "code": hash_password(code),
                     "response": response_send.json()
                 }
             else:
@@ -399,6 +402,20 @@ async def reset_code(card_id: int, email: str):
                 status_code=response.status_code,
                 detail="Erro ao enviar o código: " + response.text
             )
+
+async def verify_reset_code(submited_code: str, reset_code: str): 
+    if not submited_code or not reset_code:
+        raise HTTPException(status_code=400, detail="Os códigos não podem ser vazios")
+    
+    password_check = verify_password(submited_code, reset_code)['is_same']
+    print(password_check)
+    if not password_check:
+        raise HTTPException(status_code=401, detail="O código de redefinição está incorreto")
+
+    return {
+        "success": True,
+        "message": "O código de redefinição está correto"
+    }
 
 async def forgot_password(email: str):
     # first check if the user exists

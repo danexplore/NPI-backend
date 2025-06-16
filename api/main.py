@@ -84,6 +84,10 @@ async def verify_user_token(token: str):
 async def hash_password(password: str, card_id: int):
     return await create_password_hash(password, card_id)
 
+@app.post("/api/hash-reset-code")
+async def hash_reset_code(code: str):
+    return await create_code_hash(code=code)
+
 @app.post("/api/reset-password")
 async def reset_user_password(user_id: str, new_password: str):
     return await reset_password(user_id, new_password)
@@ -99,6 +103,10 @@ async def user_forgot_password(email: str):
 @app.post("/api/verify-password")
 async def verify_user_password(password: str, hashed_password: str):
     return verify_password(password, hashed_password)
+
+@app.post("/api/verify-reset-code")
+async def verify_code(submited_code: str, reset_code: str):
+    return await verify_reset_code(submited_code=submited_code, reset_code=reset_code)
 
 @app.get("/courses-ymed")
 @cache(expire=300)
