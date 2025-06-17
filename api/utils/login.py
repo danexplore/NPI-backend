@@ -45,15 +45,6 @@ async def fetch_users_from_pipefy():
         }
     }
     """
-    
-    user = User(
-        id=0,
-        nome="",
-        email="",
-        password="",
-        permissao="",
-        card_id=0
-    )
 
     try:
         cursor = None
@@ -82,22 +73,37 @@ async def fetch_users_from_pipefy():
                 page_info = data.get("pageInfo", {})
 
                 for node in nodes:
-                    user.id = node.get("id")
+                    user_data = {
+                        "id": node.get("id"),
+                        "nome": "",
+                        "email": "",
+                        "password": "",
+                        "permissao": "",
+                        "card_id": 0
+                    }
                     for field in node.get("record_fields", []):
                         field_id = field.get("field", {}).get("id")
                         value = field.get("value")
                         if field_id == "email":
-                            user.email = value
+                            user_data["email"] = value
                         elif field_id == "nome_completo":
-                            user.nome = value
+                            user_data["nome"] = value
                         elif field_id == "senha":
-                            user.password = value
+                            user_data["password"] = value
                         elif field_id == "permiss_o":
-                            user.permissao = value
+                            user_data["permissao"] = value
                         elif field_id == "card_id":
-                            user.card_id = int(value)
+                            user_data["card_id"] = int(value)
 
-                    all_users[user.id] = user
+                    user = User(
+                        id=user_data["id"],
+                        nome=user_data["nome"],
+                        email=user_data["email"],
+                        password=user_data["password"],
+                        permissao=user_data["permissao"],
+                        card_id=user_data["card_id"]
+                    )
+                    all_users[int(user.id)] = user
 
                 has_next_page = page_info.get("hasNextPage", False)
                 cursor = page_info.get("endCursor")
@@ -105,7 +111,7 @@ async def fetch_users_from_pipefy():
     except Exception as e:
         print(f"Erro ao buscar usuários do Pipefy: {e}")
         return {}
-    
+
     return all_users
 
 def hash_password(password: str) -> str:
