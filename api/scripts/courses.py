@@ -443,8 +443,9 @@ async def get_home_data():
     active_projects = len({"Unyleya", "YMED"})
     unyleya_proposals = len(unyleya_courses_data)
     ymed_proposals = len(ymed_courses_data)
-    coordinators = sum(len(course.coordenadores) for course in unyleya_courses_data.values()) + \
-                   sum(1 for course in ymed_courses_data.values() if course.coordenador)
+    unyleya_coordinators = list(set([course.coordenadorSolicitante for course in unyleya_courses_data.values()]))
+    ymed_coordinators = list(set([course.coordenador for course in ymed_courses_data.values() if course.coordenador]))
+    coordinators = len(unyleya_coordinators) + len(ymed_coordinators)
 
     result = {
         "active_projects": active_projects,
