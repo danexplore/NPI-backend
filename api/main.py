@@ -1,13 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from .models import CourseUpdate
+from .lib.models import CourseUpdate
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
-from .utils.courses import *
-from .utils.login import *
+from .scripts.courses import *
+from .scripts.login import *
 import warnings
 from dotenv import load_dotenv
 

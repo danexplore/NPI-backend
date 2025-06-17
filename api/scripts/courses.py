@@ -4,7 +4,7 @@ import httpx
 from typing import Dict
 import json
 import re
-from ..models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
+from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
 
