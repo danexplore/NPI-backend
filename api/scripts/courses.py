@@ -435,3 +435,22 @@ async def update_course_status(course_update: CourseUpdate):
 
     except Exception as error:
         raise HTTPException(status_code=400, detail=f"Falha ao atualizar dados do curso. Error: {error}")
+
+async def get_home_data():
+    unyleya_courses_data = await get_courses_unyleya()
+    ymed_courses_data = await get_courses_ymed()
+
+    active_projects = len({"Unyleya", "YMED"})
+    unyleya_proposals = len(unyleya_courses_data)
+    ymed_proposals = len(ymed_courses_data)
+    coordinators = sum(len(course.coordenadores) for course in unyleya_courses_data.values()) + \
+                   sum(1 for course in ymed_courses_data.values() if course.coordenador)
+
+    result = {
+        "active_projects": active_projects,
+        "unyleya_proposals": unyleya_proposals,
+        "ymed_proposals": ymed_proposals,
+        "coordinators": coordinators
+    }
+
+    return result

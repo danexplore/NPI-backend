@@ -120,3 +120,7 @@ async def refresh_courses():
     # call the underlying function without cache decorator context
     courses = await get_ymed_courses_data.__wrapped__()
     return courses
+
+@app.get("/home-data")
+async def home_data():
+    return await get_home_data()
