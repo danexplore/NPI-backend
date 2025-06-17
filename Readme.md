@@ -1,4 +1,7 @@
-# Portfólio NPI Backend
+# NPI Backend (Interface de Novos Projetos | New Projects Interface)
+
+Novos Projetos é um setor da Faculdade Unyleya, responsável por trazer novos Projetos Pedagógicos para a empresa.
+Havia uma precariedade de tecnologia muito grando nesse setor, então a criação desses novos sistemas (Pipefy e uma Interface de visualização) aumentou em mais de 50% a eficiência operacional, e reduziu a chance de erros e o re-trabalho em mais de 90%.
 
 Este repositório reúne uma API desenvolvida em **Python 3.13** utilizando o framework **FastAPI**. O projeto demonstra práticas de construção de serviços REST, cache em Redis e autenticação básica, servindo como parte do meu portfólio profissional e para um projeto interno da empresa, servindo utilmente para o setor, integrado com o Pipefy.
 
