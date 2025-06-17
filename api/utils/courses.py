@@ -208,6 +208,7 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
             entity="YMED",
             slug="",
             nomeDoCurso=field_map.get("Nome do Curso"),
+            coordenador=field_map.get("Coordenador"),
             justificativaIntroducao=field_map.get("Justificativa/Introdução"),
             lacunaFormacaoGap=field_map.get("Lacuna de Formação (Gap)"),
             propostaCurso=field_map.get("Proposta do Curso"),
@@ -217,7 +218,8 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
             diferencialCurso=field_map.get("Diferencial do Curso"),
             observacoesGerais=field_map.get("Observações Gerais"),
             status="",
-            observacoesComite=""
+            observacoesComite="",
+            performance=field_map.get("Performance da Área") or ""
         )
         # Gera o slug do curso
         

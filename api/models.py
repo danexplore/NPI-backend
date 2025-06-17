@@ -44,6 +44,7 @@ class CourseYMED(BaseModel):
     entity: str
     slug: str
     nomeDoCurso: str
+    coordenador: Optional[str] = None
     justificativaIntroducao: str
     lacunaFormacaoGap: str
     propostaCurso: str
@@ -54,6 +55,7 @@ class CourseYMED(BaseModel):
     observacoesGerais: str
     status: Optional[str] = None
     observacoesComite: Optional[str] = None
+    performance: Optional[str] = None
 
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
