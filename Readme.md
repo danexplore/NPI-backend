@@ -8,7 +8,6 @@ Este repositório reúne uma API desenvolvida em **Python 3.13** utilizando o fr
 - **Redis**
 - **Python-dotenv**
 
-
 ## Pipefy
 Sistema de gerenciamento de processos.
 #### Utilizado como
@@ -43,6 +42,8 @@ As funções específicas ficam em `api/utils` e os modelos em `api/models.py`, 
 É realizada uma consulta numa "phase" específica do pipefy, buscando todos os cards (Propostas) naquela fase.
 
 - **Estruturação de dados**: As funções `parse_api_response_unyleya` & `parse_api_response_ymed` estruturam os dados em json, conforme o `models.py` nas classes `CourseUnyleya` e `CourseYMED`.
+
+![image](https://github.com/user-attachments/assets/d3bcfcbc-127e-4d88-bc17-85c4130f3681)
 
 ## Como executar
 1. Crie um ambiente virtual e ative-o.
