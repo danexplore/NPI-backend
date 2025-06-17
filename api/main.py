@@ -122,5 +122,6 @@ async def refresh_courses():
     return courses
 
 @app.get("/home-data")
+@cache(expire=500)
 async def home_data():
     return await get_home_data()

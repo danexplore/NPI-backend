@@ -447,11 +447,27 @@ async def get_home_data():
     ymed_coordinators = list(set([course.coordenador for course in ymed_courses_data.values() if course.coordenador]))
     coordinators = len(unyleya_coordinators) + len(ymed_coordinators)
 
-    result = {
+    # Placeholder values for approved, pending, and rejected proposals
+    approved_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Aprovado") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "Aprovado")
+    standby_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Stand By") + \
+                        sum(1 for course in ymed_courses_data.values() if course.status == "Stand By")
+    rejected_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Reprovado") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "Reprovado")
+    pendent_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "")
+    
+    result = ({
+        "total_proposals": (unyleya_proposals + ymed_proposals),
         "active_projects": active_projects,
+        "coordinators": coordinators,
         "unyleya_proposals": unyleya_proposals,
         "ymed_proposals": ymed_proposals,
-        "coordinators": coordinators
-    }
+        "coordinators": coordinators,
+        "approved": approved_proposals,
+        "standby": standby_proposals,
+        "rejected": rejected_proposals,
+        "pendent": pendent_proposals
+    })
 
     return result
