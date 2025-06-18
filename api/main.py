@@ -109,7 +109,7 @@ async def verify_code(submited_code: str, reset_code: str):
     return await verify_reset_code(submited_code=submited_code, reset_code=reset_code)
 
 @app.get("/courses-ymed")
-@cache(expire=300)
+@cache(expire=1800)
 async def get_ymed_courses_data():
     return await get_courses_ymed()
 
