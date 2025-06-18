@@ -471,3 +471,75 @@ async def get_home_data():
     })
 
     return result
+
+async def create_comment_in_card(card_id: str, text: str):
+    if not card_id or not text:
+        raise HTTPException(status_code=400, detail="Card ID e texto são obrigatórios")
+    CREATE_COMMENT_MUTATION = """
+    mutation CreateComment($input: CreateCommentInput!) {
+        createComment(input: $input) {
+            comment {
+                id
+                created_at
+                text
+            }
+        }
+    }
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                API_URL,
+                headers=HEADERS,
+                json={
+                    "query": CREATE_COMMENT_MUTATION,
+                    "variables": {
+                        "input": {
+                            "card_id": card_id,
+                            "text": text
+                        }
+                    }
+                }
+            )
+            data = response.json()
+            if "errors" in data:
+                raise Exception(data["errors"][0]["message"])
+            return data["data"]["createComment"]["comment"]
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Falha ao criar comentário. Error: {error}")
+
+
+async def get_card_comments_data(card_id: int):
+    if not card_id:
+        raise HTTPException(status_code=400, detail="Card ID é obrigatório")
+    
+    GET_COMMENTS_QUERY = """
+    {
+        card(id: %s) {
+            comments {
+                id
+                text
+                created_at
+            }
+        }
+    }
+    """ % card_id
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                API_URL,
+                headers=HEADERS,
+                json={
+                    "query": GET_COMMENTS_QUERY,
+                    "variables": {
+                        "card_id": card_id
+                    }
+                }
+            )
+            data = response.json()
+            if "errors" in data:
+                raise Exception(data["errors"][0]["message"])
+            return data["data"]["card"]["comments"]
+        
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Falha ao buscar comentários. Error: {error}")

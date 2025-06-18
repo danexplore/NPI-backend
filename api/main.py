@@ -125,3 +125,12 @@ async def refresh_courses():
 @cache(expire=500)
 async def home_data():
     return await get_home_data()
+
+@app.get("/get-card-comments")
+@cache(expire=60)
+async def get_card_comments(card_id: int):
+    return await get_card_comments_data(card_id=card_id)
+
+@app.post("/create-card-comment")
+async def create_card_comment(card_id: int, text: str):
+    return await create_comment_in_card(card_id=card_id, text=text)
