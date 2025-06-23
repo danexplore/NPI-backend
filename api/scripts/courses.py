@@ -249,7 +249,6 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
     courses = dict(map(process_edge, edges))
     return courses
 
-@cache  # Cache por 5 minutos
 async def get_courses_unyleya():
     QUERY = """
     {
@@ -333,7 +332,6 @@ async def get_courses_unyleya():
         print(f"Erro ao buscar dados do Pipefy: {error}")
         raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
 
-@cache  # Cache por 5 minutos
 async def get_courses_ymed():
     QUERY = """
     {\n  phase(id: \"339017044\") {\n    cards_count\n    cards(first: 50) {\n      pageInfo {\n        hasNextPage\n        startCursor\n        endCursor\n      }\n      edges {\n        node {\n          id\n          fields {\n            name\n            native_value\n            field {\n              label\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n}\n    """
@@ -444,7 +442,6 @@ async def update_course_status(course_update: CourseUpdate):
     except Exception as error:
         raise HTTPException(status_code=400, detail=f"Falha ao atualizar dados do curso. Error: {error}")
 
-@cache  # Cache por 5 minutos
 async def get_home_data():
     unyleya_courses_data = await get_courses_unyleya()
     ymed_courses_data = await get_courses_ymed()
