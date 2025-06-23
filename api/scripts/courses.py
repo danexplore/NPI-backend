@@ -205,7 +205,6 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
         field_map = {f.get("name"): f.get("native_value") for f in fields}
         benchmark_raw = field_map.get("Benchmark", "").strip().split("\n") if field_map.get("Benchmark") else []
         benchmark = json.loads(benchmark_raw[0])
-        print(benchmark)
 
         course = CourseYMED(
             id=node.get("id"),
@@ -224,7 +223,7 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
             status="",
             observacoesComite="",
             performance=field_map.get("Performance da Área") or "",
-            benchmark=benchmark or []
+            concorrentes=benchmark or []
         )
         # Gera o slug do curso
         
