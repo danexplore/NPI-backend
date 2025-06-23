@@ -27,19 +27,18 @@ async def lifespan(app: FastAPI):
         raise HTTPException(status_code=500, detail="Erro ao buscar usuários do Pipefy")
     yield
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-    if os.getenv("ENVIRONMENT") == "development":
-        load_dotenv()
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+if os.getenv("ENVIRONMENT") == "development":
+    load_dotenv()
 
-    app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # Permitir todas as origens
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas as origens
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
