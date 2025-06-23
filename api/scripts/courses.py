@@ -8,6 +8,7 @@ import re
 from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
+from functools import cache, reduce, partial, lru_cache
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
@@ -23,21 +24,20 @@ HEADERS = {
     "Authorization": f"Bearer {PIPEFY_API_KEY}",
     "Content-Type": "application/json",
 }
-
-@cache(expire=300)  # Cache por 5 minutos
-def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUnyleya]:    
+@cache  # Cache por 5 minutos
+def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUnyleya]:
     courses: Dict[str, CourseUnyleya] = {}
-    
+
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
-    for edge in edges:
+
+    def process_edge(edge):
         if not edge["node"]["id"] or not edge["node"]["fields"]:
             print(f"Estrutura de edge inválida: {json.dumps(edge)}")
-            continue
+            return None
 
         fields = edge["node"]["fields"]
         child_relations = edge["node"].get("child_relations", [])
 
-        # Inicializa o objeto do curso
         course = CourseUnyleya(
             id=edge["node"]["id"],
             entity="Unyleya",
@@ -53,18 +53,16 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
             disciplinasIA=[],
             status="",
             observacoesComite="",
-            cargaHoraria=0  # Inicializa com 0
+            cargaHoraria=0
         )
 
-        # Processa os campos principais
-        for field in fields:
+        def process_field(course, field):
             if not field.get("name"):
                 print(f"Estrutura de campo inválida: nome ausente {json.dumps(field)}")
                 raise ValueError("Campo sem nome encontrado na resposta da API")
 
             value = field.get("native_value", "").strip() or ""
 
-            # Verifica se é um dos campos de coordenador solicitante
             if field["name"] == "curso-slug":
                 course.slug = value.strip()
             if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
@@ -86,13 +84,13 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                         formatted_value = value.strip()
                         if not (formatted_value.startswith("[") and formatted_value.endswith("]")):
                             raise ValueError("Formato JSON inválido para Concorrentes IA")
-                        
+
                         formatted_value = formatted_value.replace(",\n]", "]")
                         parsed_value = json.loads(formatted_value)
-                        
+
                         if isinstance(parsed_value, str):
                             parsed_value = json.loads(parsed_value)
-                        
+
                         if isinstance(parsed_value, list):
                             course.concorrentesIA = [
                                 {
@@ -120,7 +118,7 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                 if value:
                     course.disciplinasIA = []
                     values = value.split("\n")
-                    
+
                     for value in values:
                         values = value.split(";")
                         nome = values[0]
@@ -134,32 +132,32 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                             "carga": int(carga)
                         })
                         course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
-                        
-                    # Verifica se já existe alguma das disciplinas de desenvolvimento
+
                     disciplinas_desenvolvimento = [
                         "Desenvolvimento Profissional".lower(),
                         "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
                     ]
                     if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
-                        # Adiciona a disciplina no início da lista
                         course.disciplinasIA.insert(0, {
                             "nome": "Desenvolvimento Profissional",
                             "carga": 40
                         })
-                        course.cargaHoraria += 40  # Atualiza a carga horária total
+                        course.cargaHoraria += 40
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
             elif field["name"] == "Observações do Comitê":
                 course.observacoesComite = value
+            return course
 
-        # Coleta nomes dos coordenadores
-        coordenador_nomes = []
-        for field in fields:
-            if field["name"].strip().startswith("Coordenador") and field.get("native_value"):
-                value = field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
-                coordenador_nomes.append(value)
+        # Use reduce to process all fields
+        course = reduce(process_field, fields, course)
 
-        # Busca informações detalhadas dos coordenadores
+        coordenador_nomes = [
+            field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
+            for field in fields
+            if field["name"].strip().startswith("Coordenador") and field.get("native_value")
+        ]
+
         coordenadores_info = {}
         for relation in child_relations:
             if relation.get("cards"):
@@ -179,35 +177,52 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                     "jaECoordenador": ja_e_coordenador
                 }
 
-        # Cria lista final de coordenadores
-        for nome in coordenador_nomes:
+        def build_coordenador(nome):
             if nome in coordenadores_info:
-                course.coordenadores.append({
+                return {
                     "nome": nome,
                     "minibiografia": coordenadores_info[nome]["minibiografia"],
                     "jaECoordenador": coordenadores_info[nome]["jaECoordenador"]
-                })
+                }
             else:
-                course.coordenadores.append({
+                return {
                     "nome": nome,
                     "minibiografia": "",
                     "jaECoordenador": False
-                })
+                }
 
-        courses[course.id] = course
+        course.coordenadores = list(map(build_coordenador, coordenador_nomes))
 
+        return (course.id, course)
+
+    # Use filter and dict to build the courses dictionary
+    courses = dict(filter(lambda x: x is not None, map(process_edge, edges)))
     return courses
 
-@cache(expire=300)  # Cache por 5 minutos
+@cache  # Cache por 5 minutos
 def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
     courses = {}
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
-    for edge in edges:
+
+    def get_slug(nome_do_curso: str):
+        slug = nome_do_curso.lower()
+        slug = re.sub(r'[áàãâ]', 'a', slug)
+        slug = re.sub(r'[éê]', 'e', slug)
+        slug = re.sub(r'[í]', 'i', slug)
+        slug = re.sub(r'[óôõ]', 'o', slug)
+        slug = re.sub(r'[ú]', 'u', slug)
+        slug = re.sub(r'[ç]', 'c', slug)
+        slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+        slug = re.sub(r'\s+', '-', slug)
+        slug = re.sub(r'-+', '-', slug).strip('-')
+        return slug
+
+    def process_edge(edge):
         node = edge.get("node", {})
         fields = node.get("fields", [])
         field_map = {f.get("name"): f.get("native_value") for f in fields}
         benchmark_raw = field_map.get("Benchmark", "").strip().split("\n") if field_map.get("Benchmark") else []
-        benchmark = json.loads(benchmark_raw[0])
+        benchmark = json.loads(benchmark_raw[0]) if benchmark_raw else []
 
         course = CourseYMED(
             id=node.get("id"),
@@ -228,29 +243,13 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
             performance=field_map.get("Performance da Área") or "",
             concorrentes=benchmark or []
         )
-        # Gera o slug do curso
-        
-        def get_slug(nome_do_curso: str):
-            # Converte para minúsculas e remove acentos usando regex
-            slug = nome_do_curso.lower()
-            slug = re.sub(r'[áàãâ]', 'a', slug)
-            slug = re.sub(r'[éê]', 'e', slug)
-            slug = re.sub(r'[í]', 'i', slug)
-            slug = re.sub(r'[óôõ]', 'o', slug)
-            slug = re.sub(r'[ú]', 'u', slug)
-            slug = re.sub(r'[ç]', 'c', slug)
-            # Substitui espaços e caracteres especiais por hífen
-            slug = re.sub(r'[^a-z0-9\s-]', '', slug)
-            slug = re.sub(r'\s+', '-', slug)
-            # Remove hífens duplicados e limpa início/fim
-            slug = re.sub(r'-+', '-', slug).strip('-')
-            return slug
-
         course.slug = get_slug(course.nomeDoCurso)
-        courses[course.slug] = course
+        return (course.slug, course)
+
+    courses = dict(map(process_edge, edges))
     return courses
 
-@cache(expire=300)  # Cache por 5 minutos
+@cache  # Cache por 5 minutos
 async def get_courses_unyleya():
     QUERY = """
     {
@@ -287,7 +286,7 @@ async def get_courses_unyleya():
     }
     }
     """
-    
+
     try:
         all_edges = []
         cursor = None
@@ -319,7 +318,7 @@ async def get_courses_unyleya():
 
                 has_next_page = page_info.get("hasNextPage", False)
                 cursor = page_info.get("endCursor")
-        
+
         nested_data = {
             "phase": {
                 "cards": {
@@ -334,7 +333,7 @@ async def get_courses_unyleya():
         print(f"Erro ao buscar dados do Pipefy: {error}")
         raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
 
-@cache(expire=300)  # Cache por 5 minutos
+@cache  # Cache por 5 minutos
 async def get_courses_ymed():
     QUERY = """
     {\n  phase(id: \"339017044\") {\n    cards_count\n    cards(first: 50) {\n      pageInfo {\n        hasNextPage\n        startCursor\n        endCursor\n      }\n      edges {\n        node {\n          id\n          fields {\n            name\n            native_value\n            field {\n              label\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n}\n    """
