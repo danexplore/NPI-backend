@@ -508,7 +508,6 @@ async def create_comment_in_card(card_id: str, text: str):
     except Exception as error:
         raise HTTPException(status_code=400, detail=f"Falha ao criar comentário. Error: {error}")
 
-
 async def get_card_comments_data(card_id: int):
     if not card_id:
         raise HTTPException(status_code=400, detail="Card ID é obrigatório")

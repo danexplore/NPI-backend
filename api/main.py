@@ -11,13 +11,11 @@ from .scripts.login import *
 import warnings
 from dotenv import load_dotenv
 
-warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-if os.getenv("ENVIRONMENT") == "development":
-    load_dotenv()
-
-REDIS_URL = os.getenv("REDIS_URL")
-
 async def lifespan(app: FastAPI):
+    REDIS_URL = os.getenv("REDIS_URL")
+    if not REDIS_URL:
+        raise ValueError("REDIS_URL não está definida nas variáveis de ambiente")
+    
     # Configuração do Redis
     redis = aioredis.from_url(REDIS_URL, decode_responses=True)
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
@@ -29,18 +27,19 @@ async def lifespan(app: FastAPI):
         raise HTTPException(status_code=500, detail="Erro ao buscar usuários do Pipefy")
     yield
 
-app = FastAPI(lifespan=lifespan)
+if __name__ == "__main__":
+    warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+    if os.getenv("ENVIRONMENT") == "development":
+        load_dotenv()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas as origens
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    app = FastAPI(lifespan=lifespan)
 
-
-if not REDIS_URL:
-    raise ValueError("REDIS_URL não está definida nas variáveis de ambiente")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Permitir todas as origens
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.get("/")
 async def root():
