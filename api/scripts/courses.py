@@ -444,7 +444,7 @@ async def update_course_status(course_update: CourseUpdate):
     except Exception as error:
         raise HTTPException(status_code=400, detail=f"Falha ao atualizar dados do curso. Error: {error}")
 
-@cache(expire=300)  # Cache por 5 minutos
+@cache  # Cache por 5 minutos
 async def get_home_data():
     unyleya_courses_data = await get_courses_unyleya()
     ymed_courses_data = await get_courses_ymed()

@@ -7,6 +7,7 @@ import os
 import bcrypt
 import httpx
 from dotenv import load_dotenv
+from functools import cache
 
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
