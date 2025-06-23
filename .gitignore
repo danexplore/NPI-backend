@@ -5,3 +5,5 @@ api/*pycache*
 teste.py
 tests/
 api/utils/__pycache__
+api/lib/__pycache__
+api/scripts/__pycache__
