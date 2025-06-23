@@ -4,7 +4,7 @@ import os
 from .lib.models import CourseUpdate
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
-from fastapi_cache.decorator import cache
+from fastapi_cache.decorator import cache as cache_fastapi
 from redis import asyncio as aioredis
 from .scripts.courses import *
 from .scripts.login import *
@@ -45,7 +45,7 @@ async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
 @app.get("/courses")
-@cache(expire=300)  # Cache por 5 minutos
+@cache_fastapi(expire=300)  # Cache por 5 minutos
 async def get_courses_data():
     return await get_courses_unyleya()
 
@@ -67,6 +67,7 @@ async def refresh_courses():
     return courses
 
 @app.get("/api/users")
+@cache_fastapi(expire=300)
 async def get_users():
     return await fetch_users_from_pipefy()
 
@@ -107,7 +108,7 @@ async def verify_code(submited_code: str, reset_code: str):
     return await verify_reset_code(submited_code=submited_code, reset_code=reset_code)
 
 @app.get("/courses-ymed")
-@cache(expire=1800)
+@cache_fastapi(expire=1800)
 async def get_ymed_courses_data():
     return await get_courses_ymed()
 
@@ -120,7 +121,7 @@ async def refresh_courses():
     return courses
 
 @app.get("/home-data")
-@cache(expire=500)
+@cache_fastapi(expire=500)
 async def home_data():
     return await get_home_data()
 
