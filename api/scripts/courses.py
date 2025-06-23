@@ -8,7 +8,7 @@ import re
 from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
-from functools import cache, reduce
+from functools import reduce
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
@@ -24,7 +24,7 @@ HEADERS = {
     "Authorization": f"Bearer {PIPEFY_API_KEY}",
     "Content-Type": "application/json",
 }
-@cache  # Cache por 5 minutos
+
 def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUnyleya]:
     courses: Dict[str, CourseUnyleya] = {}
 
@@ -199,7 +199,6 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
     courses = dict(filter(lambda x: x is not None, map(process_edge, edges)))
     return courses
 
-@cache  # Cache por 5 minutos
 def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
     courses = {}
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
