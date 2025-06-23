@@ -56,7 +56,7 @@ class CourseYMED(BaseModel):
     status: Optional[str] = None
     observacoesComite: Optional[str] = None
     performance: Optional[str] = None
-    benchmark: List[dict]
+    concorrentes: List[dict]
 
 class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
