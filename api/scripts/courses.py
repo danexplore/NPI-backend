@@ -8,7 +8,7 @@ import re
 from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
-from functools import cache, reduce, partial, lru_cache
+from functools import cache, reduce
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
