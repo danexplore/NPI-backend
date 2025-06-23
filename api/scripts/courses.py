@@ -1,4 +1,3 @@
-from functools import cache
 import os
 from fastapi import HTTPException
 import httpx
