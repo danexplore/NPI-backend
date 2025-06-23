@@ -192,7 +192,7 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
 
         course.coordenadores = list(map(build_coordenador, coordenador_nomes))
 
-        return (course.id, course)
+        return (course.slug, course)
 
     # Use filter and dict to build the courses dictionary
     courses = dict(filter(lambda x: x is not None, map(process_edge, edges)))
