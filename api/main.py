@@ -11,10 +11,11 @@ import warnings
 from dotenv import load_dotenv
 import secrets
 import json
-from .lib.models import CourseUpdate
+from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
 import asyncio
+from pydantic import BaseModel
 
 # Parse users from env
 USERS = {}
@@ -105,40 +106,41 @@ async def get_users(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
     return sort_and_reorder_dict(users, field_order)
 
 @app.post("/api/login")
-async def validate_login(email: str, password: str):
-    return await login(email, password)
+async def validate_login(payload: LoginRequest):
+    return await login(payload.email, payload.password)
 
 @app.post("/api/verify-token")
-async def verify_user_token(token: str):
+async def verify_user_token(payload: VerifyToken):
+    token = payload.token
     return await verify_token(token)
 
 @app.post("/api/password-hash")
-async def hash_password(password: str, card_id: int):
-    return await create_password_hash(password, card_id)
+async def hash_password(payload: PasswordHashRequest):
+    return await create_password_hash(payload.password, payload.card_id)
 
 @app.post("/api/hash-reset-code")
-async def hash_reset_code(code: str):
-    return await create_code_hash(code=code)
+async def hash_reset_code(payload: HashResetCodeRequest):
+    return await create_code_hash(code=payload.code)
 
 @app.post("/api/reset-password")
-async def reset_user_password(user_id: str, new_password: str):
-    return await reset_password(user_id, new_password)
+async def reset_user_password(payload: ResetPasswordRequest):
+    return await reset_password(payload.user_id, payload.new_password)
 
 @app.post("/api/reset-code")
-async def send_reset_code(email: str, card_id: int):
-    return await reset_code(card_id, email)
+async def send_reset_code(payload: ResetCodeRequest):
+    return await reset_code(payload.card_id, payload.email)
 
 @app.post("/api/forgot-password")
-async def user_forgot_password(email: str):
-    return await forgot_password(email)
+async def user_forgot_password(payload: ForgotPasswordRequest):
+    return await forgot_password(payload.email)
 
 @app.post("/api/verify-password")
-async def verify_user_password(password: str, hashed_password: str):
-    return verify_password(password, hashed_password)
+async def verify_user_password(payload: VerifyPasswordRequest):
+    return verify_password(payload.password, payload.hashed_password)
 
 @app.post("/api/verify-reset-code")
-async def verify_code(submited_code: str, reset_code: str):
-    return await verify_reset_code(submited_code=submited_code, reset_code=reset_code)
+async def verify_code(payload: VerifyResetCodeRequest):
+    return await verify_reset_code(submited_code=payload.submited_code, reset_code=payload.reset_code)
 
 # Course Functions
 @app.post("/update-course-status")
@@ -218,7 +220,6 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
             ordered[k] = home_data_dict[k]
     return ordered
 
-
 @app.get("/get-card-comments")
 async def get_card_comments(card_id: int, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_card_comments_data(card_id=card_id)
@@ -228,7 +229,7 @@ async def create_card_comment(card_id: int, text: str, credentials: HTTPBasicCre
     return await create_comment_in_card(card_id=card_id, text=text)
 
 # Refresh Functions
-@app.get("/refresh-courses")
+@app.get("/refresh-courses-unyleya")
 async def refresh_courses_unyleya(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     """Clear cached course data and fetch fresh information."""
     redis.json.delete("courses_data")

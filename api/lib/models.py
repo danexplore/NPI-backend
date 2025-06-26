@@ -69,3 +69,39 @@ class User(BaseModel):
     password: str
     permissao: str
     card_id: int
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class PasswordHashRequest(BaseModel):
+    password: str
+    card_id: int
+    
+class HashResetCodeRequest(BaseModel):
+    code: str
+
+class HashResetCodeRequest(BaseModel):
+    code: str
+
+class ResetPasswordRequest(BaseModel):
+    user_id: str
+    new_password: str
+
+class ResetCodeRequest(BaseModel):
+    email: str
+    card_id: int
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class VerifyPasswordRequest(BaseModel):
+    password: str
+    hashed_password: str
+
+class VerifyResetCodeRequest(BaseModel):
+    submited_code: str
+    reset_code: str
+
+class VerifyToken(BaseModel):
+    token: str
