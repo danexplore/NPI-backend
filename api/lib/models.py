@@ -85,7 +85,7 @@ class HashResetCodeRequest(BaseModel):
     code: str
 
 class ResetPasswordRequest(BaseModel):
-    user_id: str
+    user_id: int
     new_password: str
 
 class ResetCodeRequest(BaseModel):

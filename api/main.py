@@ -55,7 +55,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 redis = Redis.from_env()
 
 def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
