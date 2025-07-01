@@ -6,4 +6,25 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: "uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    startCommand: "uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level warning --access-log"
+    
+    # Environment variables
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: WARNING
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+    
+    # Health check
+    healthCheckPath: /monitoring/health
+    
+    # Auto-deploy settings
+    autoDeploy: true
+    
+    # Disk settings
+    disk:
+      name: data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
