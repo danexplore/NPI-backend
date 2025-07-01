@@ -178,12 +178,18 @@ async def transform_dataframe() -> pd.DataFrame:
     df.loc[df["ID"].isin([3621732, 3622187]), "Segmento"] = "Outros"
     df["Área de Conhecimento"] = df["Área de Conhecimento"].str.replace("Saúde (não usar)", "Saúde")
     df = df[df["Área de Conhecimento"] != "Cursos de Extensão"]
-    df["Coordenador Titular"] = np.where(~df["Coordenador Titular"].isin(["\n", ""]), df["Coordenador Titular"], "Coordenação não informada")
+    df["Coordenador Titular"] = np.where(~df["Coordenador Titular"].isin(["\n", ""]), df["Coordenador Titular"], "Não informado")
     df['Coordenador Titular'] = df['Coordenador Titular'].apply(corrigir_coordenador)
     # Corrige o status: cursos descontinuados/cancelados/suspensos viram "Inativo", "Em oferta" vira "Ativo", demais mantêm o valor original
-    df["Status"] = df["Evolução Acadêmica"].apply(lambda x: "Inativo" if x in ["Descontinuado", "Cancelado", "Suspenso"] else ("Ativo" if x == "Em oferta" else x))
+    df["Status"] = df["Evolução Acadêmica"].apply(lambda x: "Inativo" if x in ["Descontinuado", "Cancelado", "Suspenso"] else ("Ativo" if x == "Em oferta" else ("Inativo" if x is None else x)))
 
     df = df[["ID", "Titulo de exibição", "Coordenador Titular", "Área de Conhecimento", "Evolução Acadêmica", "Status", "Versão do Curso", "Segmento", "Data último status", "Código eMEC", "Polo / Parceiro"]]
+
+    df["Área de Conhecimento"] = df.loc[df["Área de Conhecimento"].isnull(), "Área de Conhecimento"] = "Não Informada"
+    df["Evolução Acadêmica"] = df.loc[df["Evolução Acadêmica"].isnull(), "Evolução Acadêmica"] = "Não Informado"
+    df["Segmento"] = df.loc[df["Segmento"].isnull(), "Segmento"] = "Não Informado"
+    df["Versão"] = df.loc[df["Versão"].isnull(), "Versão"] = "Não Informada"
+    df["Código eMEC"] = df.loc[df["Código eMEC"].isnull(), "Código eMEC"] = "Não Informado"
 
     # Cria nova coluna normalizada
     df['Título Normalizado'] = df['Titulo de exibição'].apply(normalizar_titulo_exibicao)
