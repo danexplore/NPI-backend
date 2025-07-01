@@ -2,21 +2,16 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
-from fastapi_cache.decorator import cache as cache_fastapi
 from upstash_redis import Redis
 import os
 import warnings
 from dotenv import load_dotenv
 import secrets
-import json
 from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
 from .scripts.g2_cursos import *
 import asyncio
-from pydantic import BaseModel
 
 # Parse users from env
 USERS = {}
