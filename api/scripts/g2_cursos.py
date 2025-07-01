@@ -171,16 +171,12 @@ async def transform_dataframe() -> pd.DataFrame:
     # Adiciona a data de hoje na coluna 'Data último status' para as condições especificadas
     df.loc[(df['Evolução Acadêmica'].str.lower().isin(['em construção', 'em cadastro'])) & (df['Data último status'] is None), 'Data último status'] = time.strftime('%d/%m/%Y')
 
-    df = df[df['Carga Horária'].astype(int) > 120]
-    df = df[df['ID'] >= 10000]
-    df = df[~df["Versão do Curso"].isin(["LEGADO"])]
     df.loc[df["Versão do Curso"].isin(["SV40", "SV100"]), "Versão do Curso"] = "SV"
     df.loc[df["Versão do Curso"].isin(["CV100"]), "Versão do Curso"] = "CV"
-    df = df[df["Segmento"] != "IMPONLINE"]
-    df = df[df["Situação do Projeto Pedagógico"] != "Inativo"]
     df.loc[df["ID"].isin([3621789, 3621804, 3622914]), "Segmento"] = "Saúde"
     df.loc[df["ID"].isin([3621732, 3622187]), "Segmento"] = "Outros"
     df["Área de Conhecimento"] = df["Área de Conhecimento"].str.replace("Saúde (não usar)", "Saúde")
+    df = df[df["Área de Conhecimento"] != "Cursos de Extensão"]
     df["Coordenador Titular"] = np.where(~df["Coordenador Titular"].isin(["\n", ""]), df["Coordenador Titular"], "Coordenação não informada")
     df['Coordenador Titular'] = df['Coordenador Titular'].apply(corrigir_coordenador)
     # Corrige o status: cursos descontinuados/cancelados/suspensos viram "Inativo", "Em oferta" vira "Ativo", demais mantêm o valor original

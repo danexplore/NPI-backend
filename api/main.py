@@ -264,7 +264,7 @@ async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_
 async def get_cursos_g2_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_cursos_g2()
 
-@app.get("/cursos-g2/excel")
+@app.get("/g2/cursos-g2-excel")
 async def get_cursos_g2_excel_file(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_cursos_g2_excel()
 
@@ -274,6 +274,6 @@ async def get_cursos_search_data(credentials: HTTPBasicCredentials = Depends(ver
     return await get_cursos_search()
 
 # Cursos Refresh Functions
-@app.get("/g2/refresh-cursos")
+@app.post("/g2/refresh-cursos")
 async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await refresh_cursos_g2()
