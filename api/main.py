@@ -14,6 +14,7 @@ import json
 from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
+from .scripts.g2_cursos import *
 import asyncio
 from pydantic import BaseModel
 
@@ -262,3 +263,22 @@ async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_
         refresh_users(credentials)
     )
     return {"message": "Dados atualizados com sucesso."}
+
+# Cursos G2 Functions
+@app.get("/g2/cursos-g2")
+async def get_cursos_g2_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await get_cursos_g2()
+
+@app.get("/cursos-g2/excel")
+async def get_cursos_g2_excel_file(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await get_cursos_g2_excel()
+
+# Cursos Search Functions
+@app.get("/g2/cursos-search")
+async def get_cursos_search_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await get_cursos_search()
+
+# Cursos Refresh Functions
+@app.get("/g2/refresh-cursos")
+async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await refresh_cursos_g2()
