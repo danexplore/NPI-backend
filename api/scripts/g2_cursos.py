@@ -1,4 +1,5 @@
 import json
+import os
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
@@ -11,7 +12,6 @@ from upstash_redis import Redis
 from dotenv import load_dotenv
 import orjson
 import httpx
-from os import environ
 
 class ORJSONResponse(Response):
     media_type = "application/json"
@@ -107,9 +107,9 @@ def corrigir_coordenador(nome):
 
 async def get_dataframe():
     cache_key = "cursos_dataframe"
-    cached_data = json.loads(redis.get(cache_key))
+    cached_data = redis.get(cache_key)
     if cached_data:
-        df = pd.DataFrame(cached_data)
+        df = pd.DataFrame(json.loads(cached_data))
         print(df)
         return df
     url = "https://g2s.unyleya.com.br/projeto-pedagogico/gerar-xls/?st_descricao=1&st_projetopedagogico=1&st_coordenador=1&st_areaconhecimento=1"
@@ -133,11 +133,12 @@ async def get_dataframe():
     }
 
     cookies = {
-        "PHPSESSID": environ.get("PHPSESSID")
+        "PHPSESSID": os.getenv("PHPSESSID")
     }
 
     async with httpx.AsyncClient() as client:
         response = await client.get(url, headers=headers, cookies=cookies)
+        print(f"Status Code: {response.status_code}")
         html = response.content
 
     soup = BeautifulSoup(html, 'html.parser')
