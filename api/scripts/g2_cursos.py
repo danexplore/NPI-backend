@@ -66,9 +66,10 @@ def normalizar_titulo_exibicao(titulo):
         return titulo
     
     # Remove o prefixo "Pós-Graduação Lato Sensu em" (case insensitive)
-    prefix = "Pós-Graduação Lato Sensu em"
-    if titulo.lower().startswith(prefix.lower()):
-        titulo = titulo[len(prefix):]
+    prefixes = ["Pós-Graduação Lato Sensu em", "Curso de Pós-Graduação Lato Sensu em ", "Lato Sensu Post-Graduation In "]
+    for prefix in prefixes:
+        if titulo.lower().startswith(prefix.lower()):
+            titulo = titulo[len(prefix):]
 
     # Remove parênteses e conteúdo dentro deles
     titulo = re.sub(r'\(.*?\)', '', titulo)
