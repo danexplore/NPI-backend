@@ -139,16 +139,16 @@ async def verify_code(payload: VerifyResetCodeRequest):
 
 # Course Functions
 @app.post("/update-course-status")
-async def update_course_status_after_comite(courseId: str, status: str, observations: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+async def update_course_status_after_comite(payload: CourseUpdate, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     course = CourseUpdate(
-        courseId=str(courseId),
-        status=status,
-        observations=observations
+        courseId=str(payload.courseId),
+        status=payload.status,
+        observations=payload.observations
     )
     message = await update_course_status(course)
     redis.json.delete("home_data")
     await home_data()
-    return await message
+    return message
     
 @app.get("/courses")
 async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):

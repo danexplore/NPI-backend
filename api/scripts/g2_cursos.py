@@ -162,39 +162,119 @@ async def get_dataframe():
     redis.set(cache_key, value=json.loads(df.to_json(orient='records')), nx=True, ex=60*30)
     return df
 
+def map_status_academico(evolucao_academica):
+    """
+    Mapeia o status acadêmico para status simplificado de forma otimizada.
+    
+    Args:
+        evolucao_academica: Status da evolução acadêmica
+        
+    Returns:
+        str: Status mapeado (Ativo, Inativo, ou valor original)
+    """
+    if pd.isna(evolucao_academica):
+        return "Inativo"
+    
+    status_mapping = {
+        "Descontinuado": "Inativo",
+        "Cancelado": "Inativo", 
+        "Suspenso": "Inativo",
+        "Em oferta": "Ativo"
+    }
+    
+    return status_mapping.get(evolucao_academica, evolucao_academica)
+
 async def transform_dataframe() -> pd.DataFrame:
     """
     Transforma o DataFrame de acordo com as regras especificadas.
+    
+    Melhorias implementadas:
+    - Operações otimizadas com pandas para melhor performance
+    - Uso de mapeamentos em lote ao invés de múltiplas operações individuais
+    - Tratamento consolidado de valores nulos
+    - Estrutura organizada e documentada
+    
+    Returns:
+        pd.DataFrame: DataFrame transformado e limpo
     """
     df = await get_dataframe()
-    # Normaliza os nomes dos coordenadores
-    df['ID'] = df['ID'].str.replace('.', '').astype(int)
-    # Adiciona a data de hoje na coluna 'Data último status' para as condições especificadas
-    df.loc[(df['Evolução Acadêmica'].str.lower().isin(['em construção', 'em cadastro'])) & (df['Data último status'] is None), 'Data último status'] = time.strftime('%d/%m/%Y')
-
-    df.loc[df["Versão do Curso"].isin(["SV40", "SV100"]), "Versão do Curso"] = "SV"
-    df.loc[df["Versão do Curso"].isin(["CV100"]), "Versão do Curso"] = "CV"
-    df.loc[df["ID"].isin([3621789, 3621804, 3622914]), "Segmento"] = "Saúde"
-    df.loc[df["ID"].isin([3621732, 3622187]), "Segmento"] = "Outros"
-    df["Área de Conhecimento"] = df["Área de Conhecimento"].str.replace("Saúde (não usar)", "Saúde")
+    df = df.copy()  # Evita warnings do pandas sobre modificações
+    
+    # ========== LIMPEZA E FORMATAÇÃO INICIAL ==========
+    # Converte ID para inteiro removendo pontos
+    df['ID'] = df['ID'].str.replace('.', '', regex=False).astype(int)
+    
+    # Adiciona data atual para status específicos sem data
+    today = time.strftime('%d/%m/%Y')
+    mask_add_date = (
+        df['Evolução Acadêmica'].str.lower().isin(['em construção', 'em cadastro']) & 
+        pd.isna(df['Data último status'])
+    )
+    df.loc[mask_add_date, 'Data último status'] = today
+    
+    # ========== MAPEAMENTOS OTIMIZADOS ==========
+    # Mapeamento de versões do curso (operação em lote)
+    version_mapping = {
+        "SV40": "SV",
+        "SV100": "SV", 
+        "CV100": "CV"
+    }
+    df["Versão do Curso"] = df["Versão do Curso"].replace(version_mapping)
+    
+    # Mapeamento de segmentos por ID (operação otimizada)
+    segment_mapping = {
+        3621789: "Saúde",
+        3621804: "Saúde", 
+        3622914: "Saúde",
+        3621732: "Outros",
+        3622187: "Outros"
+    }
+    df["Segmento"] = df["ID"].map(segment_mapping).fillna(df["Segmento"])
+    
+    # ========== CORREÇÕES DE DADOS ==========
+    # Correção de área de conhecimento
+    df["Área de Conhecimento"] = df["Área de Conhecimento"].str.replace(
+        "Saúde (não usar)", "Saúde", regex=False
+    )
+    
+    # Filtragem de cursos de extensão
     df = df[df["Área de Conhecimento"] != "Cursos de Extensão"]
-    df["Coordenador Titular"] = np.where(~df["Coordenador Titular"].isin(["\n", ""]), df["Coordenador Titular"], "Não informado")
+    
+    # Tratamento de coordenadores vazios
+    mask_empty_coord = df["Coordenador Titular"].isin(["\n", "", np.nan])
+    df.loc[mask_empty_coord, "Coordenador Titular"] = "Não informado"
     df['Coordenador Titular'] = df['Coordenador Titular'].apply(corrigir_coordenador)
-    # Corrige o status: cursos descontinuados/cancelados/suspensos viram "Inativo", "Em oferta" vira "Ativo", demais mantêm o valor original
-    df["Status"] = df["Evolução Acadêmica"].apply(lambda x: "Inativo" if x in ["Descontinuado", "Cancelado", "Suspenso"] else ("Ativo" if x == "Em oferta" else ("Inativo" if x is None else x)))
-
-    df = df[["ID", "Titulo de exibição", "Coordenador Titular", "Área de Conhecimento", "Evolução Acadêmica", "Status", "Versão do Curso", "Segmento", "Data último status", "Código eMEC", "Polo / Parceiro"]]
-
-    df["Área de Conhecimento"] = df.loc[df["Área de Conhecimento"].isnull(), "Área de Conhecimento"] = "Não Informada"
-    df["Evolução Acadêmica"] = df.loc[df["Evolução Acadêmica"].isnull(), "Evolução Acadêmica"] = "Não Informado"
-    df["Segmento"] = df.loc[df["Segmento"].isnull(), "Segmento"] = "Não Informado"
-    df["Versão"] = df.loc[df["Versão"].isnull(), "Versão"] = "Não Informada"
-    df["Código eMEC"] = df.loc[df["Código eMEC"].isnull(), "Código eMEC"] = "Não Informado"
-
-    # Cria nova coluna normalizada
+    
+    # ========== MAPEAMENTO DE STATUS ==========
+    # Aplicação otimizada do mapeamento de status
+    df["Status"] = df["Evolução Acadêmica"].apply(map_status_academico)
+    
+    # ========== SELEÇÃO E ORDENAÇÃO DE COLUNAS ==========
+    columns_order = [
+        "ID", "Titulo de exibição", "Coordenador Titular", "Área de Conhecimento", 
+        "Evolução Acadêmica", "Status", "Versão do Curso", "Segmento", 
+        "Data último status", "Código eMEC", "Polo / Parceiro"
+    ]
+    df = df[columns_order]
+    
+    # ========== TRATAMENTO CONSOLIDADO DE VALORES NULOS ==========
+    # Dicionário unificado para valores padrão
+    default_values = {
+        "Área de Conhecimento": "Não Informada",
+        "Evolução Acadêmica": "Não Informado", 
+        "Segmento": "Não Informado",
+        "Versão do Curso": "Não Informada",  # Corrigido: era "Versão" 
+        "Código eMEC": "Não Informado"
+    }
+    
+    # Aplicação em lote dos valores padrão
+    df = df.fillna(default_values)
+    
+    # ========== CRIAÇÃO DE COLUNAS DERIVADAS ==========
+    # Normalização e slug em uma única passada
     df['Título Normalizado'] = df['Titulo de exibição'].apply(normalizar_titulo_exibicao)
     df['Slug'] = df['Título Normalizado'].apply(titulo_para_slug)
-
+    
     return df
 
 async def df_to_excel(file_name: str, sheet_name: str = 'PPs'):
