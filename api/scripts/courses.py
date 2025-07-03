@@ -236,8 +236,8 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
             mercado=field_map.get("Mercado"),
             diferencialCurso=field_map.get("Diferencial do Curso"),
             observacoesGerais=field_map.get("Observações Gerais"),
-            status="",
-            observacoesComite="",
+            status=field_map.get("Status Pós-Comitê") or "",
+            observacoesComite=field_map.get("Observações do Comitê") or "",
             performance=field_map.get("Performance da Área") or "",
             concorrentes=benchmark or []
         )
