@@ -116,19 +116,30 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
             elif field["name"] == "Disciplinas IA":
                 if value:
                     course.disciplinasIA = []
-                    values = value.split("\n")
+                    disciplinas = value.split("\n")
 
-                    for value in values:
-                        values = value.split(";")
-                        nome = values[0]
-                        carga = values[1] if len(values) > 1 else "0"
+                    for disciplina in disciplinas:
+                        valores = disciplina.split(";")
+                        if len(valores) >= 1:
+                            nome = valores[0]
+                            carga = valores[1] if len(valores) > 1 else "0"
+                            if len(valores) > 2:
+                                tipo = "Nova" if valores[2].strip().lower() != "aproveitamento" else "Reuso"
+                            else:
+                                tipo = "Não informado"
+                        else:
+                            nome = "Disciplina sem nome"
+                            carga = "0"
+                            tipo = "Não informado"
+                            
                         try:
                             carga = re.search(r'\d+', carga).group()
                         except AttributeError:
                             carga = 0
                         course.disciplinasIA.append({
                             "nome": nome,
-                            "carga": int(carga)
+                            "carga": int(carga),
+                            "tipo": tipo
                         })
                         course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
 
@@ -139,7 +150,8 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                     if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
                         course.disciplinasIA.insert(0, {
                             "nome": "Desenvolvimento Profissional",
-                            "carga": 40
+                            "carga": 40,
+                            "tipo": "Reuso"
                         })
                         course.cargaHoraria += 40
             elif field["name"] == "Status Pós-Comitê":

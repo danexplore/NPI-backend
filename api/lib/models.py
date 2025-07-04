@@ -16,6 +16,7 @@ class ConcorrenteIA(BaseModel):
 class DisciplinaIA(BaseModel):
     nome: str
     carga: str
+    tipo: str
 
 class Coordenador(BaseModel):
     nome: str
