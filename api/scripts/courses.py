@@ -124,7 +124,7 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
                             nome = valores[0]
                             carga = valores[1] if len(valores) > 1 else "0"
                             if len(valores) > 2:
-                                tipo = "Nova" if valores[2].strip().lower() != "aproveitamento" else "Reusos"
+                                tipo = "Nova" if valores[2].strip().lower() != "aproveitamento" else "Reuso"
                             else:
                                 tipo = "Não informado"
                         else:
