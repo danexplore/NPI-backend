@@ -154,7 +154,7 @@ async def update_course_status_after_comite(payload: CourseUpdate, credentials: 
 async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     cache_key = "courses_data"
     field_order = [
-        "id", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
+        "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
         "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
     ]
@@ -163,6 +163,23 @@ async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_ba
         raw = cached[0]
         return sort_and_reorder_dict(raw, field_order)
     raw = jsonable_encoder(await get_courses_unyleya())
+    ordered = sort_and_reorder_dict(raw, field_order)
+    redis.json.set(cache_key, path="$", value=ordered, nx=True)
+    return ordered
+
+@app.get("/pre-comite-courses")
+async def get_pre_comite_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    cache_key = "pre_comite_courses_data"
+    field_order = [
+        "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
+        "apresentacao", "publico", "concorrentesIA", "performance",
+        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+    ]
+    cached = redis.json.get(cache_key)
+    if cached:
+        raw = cached[0]
+        return sort_and_reorder_dict(raw, field_order)
+    raw = jsonable_encoder(await get_courses_pre_comite())
     ordered = sort_and_reorder_dict(raw, field_order)
     redis.json.set(cache_key, path="$", value=ordered, nx=True)
     return ordered

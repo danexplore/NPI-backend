@@ -9,6 +9,7 @@ import warnings
 from dotenv import load_dotenv
 from functools import reduce
 
+
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
@@ -338,7 +339,7 @@ async def get_courses_pre_comite():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response_unyleya(api_response, phase_name="comitê")
+        return parse_api_response_unyleya(api_response, phase_name="precomite")
     
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
@@ -421,7 +422,7 @@ async def get_courses_unyleya():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response_unyleya(api_response, phase_name="pré-comitê")
+        return parse_api_response_unyleya(api_response, phase_name="comite")
 
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
