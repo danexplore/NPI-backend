@@ -107,3 +107,10 @@ class VerifyResetCodeRequest(BaseModel):
 
 class VerifyToken(BaseModel):
     token: str
+
+class CardComment(BaseModel):
+    card_id: int
+    text: str
+
+class GetCardComment(BaseModel):
+    card_id: int

@@ -233,12 +233,12 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
     return ordered
 
 @app.get("/get-card-comments")
-async def get_card_comments(card_id: int, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await get_card_comments_data(card_id=card_id)
+async def get_card_comments(payload: GetCardComment, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await get_card_comments_data(card_id=payload.card_id)
 
 @app.post("/create-card-comment")
-async def create_card_comment(card_id: int, text: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await create_comment_in_card(card_id=card_id, text=text)
+async def create_card_comment(payload: CardComment, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await create_comment_in_card(card_id=payload.card_id, text=payload.text)
 
 # Refresh Functions
 @app.get("/refresh-courses-unyleya")
