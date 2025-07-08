@@ -26,6 +26,7 @@ class Coordenador(BaseModel):
 class CourseUnyleya(BaseModel):
     id: str
     entity: str
+    fase: str = ""
     slug: str
     nome: str
     coordenadorSolicitante: str

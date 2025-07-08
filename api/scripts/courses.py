@@ -24,7 +24,7 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUnyleya]:
+def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Dict[str, CourseUnyleya]:
     courses: Dict[str, CourseUnyleya] = {}
 
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
@@ -52,7 +52,8 @@ def parse_api_response_unyleya(api_response: ApiResponse) -> Dict[str, CourseUny
             disciplinasIA=[],
             status="",
             observacoesComite="",
-            cargaHoraria=0
+            cargaHoraria=0,
+            fase=phase_name
         )
 
         def process_field(course, field):
@@ -259,6 +260,90 @@ def parse_api_response_ymed(api_response: ApiResponse) -> Dict[str, CourseYMED]:
     courses = dict(map(process_edge, edges))
     return courses
 
+# Essa função busca os cursos pré-comitê do Pipefy
+async def get_courses_pre_comite():
+    QUERY = """
+    {
+    phase(id:"339377838") {
+        cards (first: 50) {
+        edges {
+            node {
+            id
+            fields {
+                name
+                native_value
+                field {
+                label
+                id
+                }
+            }
+            child_relations {
+                __typename
+                cards {
+                fields {
+                    name
+                    value
+                }
+                }
+            }
+            }
+        }
+        pageInfo {
+            hasNextPage
+            startCursor
+            endCursor
+        }
+        }
+    }
+    }
+    """
+
+    try:
+        all_edges = []
+        cursor = None
+        has_next_page = True
+
+        async with httpx.AsyncClient() as client:
+            while has_next_page:
+                paginated_query = QUERY
+                if cursor:
+                    paginated_query = QUERY.replace(
+                        'cards (first: 50)', f'cards (first: 50, after: "{cursor}")'
+                    )
+                else:
+                    paginated_query = QUERY
+
+                response = await client.post(
+                    API_URL,
+                    headers=HEADERS,
+                    json={"query": paginated_query}
+                )
+
+                if not response.is_success:
+                    raise HTTPException(status_code=response.status_code, detail="Erro na requisição ao Pipefy")
+
+                payload = response.json().get("data", {}).get("phase", {}).get("cards", {})
+                edges = payload.get("edges", [])
+                page_info = payload.get("pageInfo", {})
+                all_edges.extend(edges)
+
+                has_next_page = page_info.get("hasNextPage", False)
+                cursor = page_info.get("endCursor")
+
+        nested_data = {
+            "phase": {
+                "cards": {
+                    "edges": all_edges
+                }
+            }
+        }
+        api_response = ApiResponse(data=nested_data)
+        return parse_api_response_unyleya(api_response, phase_name="comitê")
+    
+    except Exception as error:
+        print(f"Erro ao buscar dados do Pipefy: {error}")
+        raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
+
 async def get_courses_unyleya():
     QUERY = """
     {
@@ -336,7 +421,7 @@ async def get_courses_unyleya():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response_unyleya(api_response)
+        return parse_api_response_unyleya(api_response, phase_name="pré-comitê")
 
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
