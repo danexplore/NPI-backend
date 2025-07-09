@@ -233,8 +233,8 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
     return ordered
 
 @app.get("/get-card-comments")
-async def get_card_comments(payload: GetCardComment, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await get_card_comments_data(card_id=payload.card_id)
+async def get_card_comments(card_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await get_card_comments_data(card_id=card_id)
 
 @app.post("/create-card-comment")
 async def create_card_comment(payload: CardComment, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
