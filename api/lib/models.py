@@ -6,6 +6,7 @@ class CourseUpdate(BaseModel):
     courseId: str
     status: str
     observations: Optional[str] = None
+    is_pre_comite: bool
 
 class ConcorrenteIA(BaseModel):
     instituicao: str

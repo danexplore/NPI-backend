@@ -25,6 +25,27 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+def generate_slug_from_name(nome: str) -> str:
+    """Gera um slug a partir do nome do curso"""
+    if not nome:
+        return ""
+    
+    slug = nome.lower()
+    # Remove acentos
+    slug = re.sub(r'[áàãâä]', 'a', slug)
+    slug = re.sub(r'[éêë]', 'e', slug)
+    slug = re.sub(r'[íîï]', 'i', slug)
+    slug = re.sub(r'[óôõö]', 'o', slug)
+    slug = re.sub(r'[úûü]', 'u', slug)
+    slug = re.sub(r'[ç]', 'c', slug)
+    # Remove caracteres especiais
+    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+    # Substitui espaços por hífens
+    slug = re.sub(r'\s+', '-', slug)
+    # Remove hífens duplicados
+    slug = re.sub(r'-+', '-', slug).strip('-')
+    return slug
+
 def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Dict[str, CourseUnyleya]:
     courses: Dict[str, CourseUnyleya] = {}
 
@@ -64,7 +85,8 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
 
             value = field.get("native_value", "").strip() or ""
 
-            if field["name"] == "curso-slug":
+            # Verificar diferentes nomes possíveis para o campo slug
+            if field["name"] in ["curso-slug", "Curso Slug", "Slug", "slug", "Slug do Curso"]:
                 course.slug = value.strip()
             if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
                 if value:
@@ -165,6 +187,20 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
         # Use reduce to process all fields
         course = reduce(process_field, fields, course)
 
+        # Debug: Mostrar todos os nomes de campos disponíveis se estiver na fase pré-comitê
+        if phase_name == "precomite" and len(fields) > 0:
+            field_names = [f.get("name", "SEM_NOME") for f in fields]
+            print(f"Campos disponíveis na fase pré-comitê: {field_names}")
+
+        # Se o slug não foi definido pelos campos, gerar um baseado no nome do curso
+        if not course.slug or course.slug.strip() == "":
+            if course.nome:
+                course.slug = generate_slug_from_name(course.nome)
+                print(f"Slug gerado automaticamente para '{course.nome}': '{course.slug}'")
+            else:
+                print(f"ATENÇÃO: Curso {course.id} não tem nome nem slug!")
+                return None
+
         coordenador_nomes = [
             field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
             for field in fields
@@ -205,6 +241,11 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                 }
 
         course.coordenadores = list(map(build_coordenador, coordenador_nomes))
+
+        # Verificar se o slug está vazio - isso pode causar problemas
+        if not course.slug or course.slug.strip() == "":
+            print(f"ATENÇÃO: Curso {course.id} tem slug vazio! Nome: {course.nome}")
+            return None
 
         return (course.slug, course)
 
@@ -339,7 +380,9 @@ async def get_courses_pre_comite():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response_unyleya(api_response, phase_name="precomite")
+        courses_result = parse_api_response_unyleya(api_response, phase_name="precomite")
+        print(f"Pre-comite - Cursos processados: {len(courses_result)}")
+        return courses_result
     
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
@@ -422,7 +465,9 @@ async def get_courses_unyleya():
             }
         }
         api_response = ApiResponse(data=nested_data)
-        return parse_api_response_unyleya(api_response, phase_name="comite")
+        courses_result = parse_api_response_unyleya(api_response, phase_name="comite")
+        print(f"Comite - Cursos processados: {len(courses_result)}")
+        return courses_result
 
     except Exception as error:
         print(f"Erro ao buscar dados do Pipefy: {error}")
@@ -476,11 +521,20 @@ async def update_course_status(course_update: CourseUpdate):
         }
     }
     """
+    print(course_update.is_pre_comite, True)
     if not course_update.courseId:
         raise HTTPException(status_code=400, detail="Course ID é obrigatório")
 
     try:
         async with httpx.AsyncClient() as client:
+            # Determinar o field_id correto baseado no contexto
+            if course_update.is_pre_comite:
+                status_field_id = "status_pr_comit"  # Field ID para pré-comitê
+                observations_field_id = "observa_es_do_pr_comit"  # Field ID para observações do pré-comitê
+            else:
+                status_field_id = "status_p_s_comit"  # Field ID para pós-comitê (atual)
+                observations_field_id = "observa_es_do_comit"  # Field ID para observações do comitê (atual)
+
             # Atualizar status se fornecido
             if course_update.status:
                 status_response = await client.post(
@@ -494,7 +548,7 @@ async def update_course_status(course_update: CourseUpdate):
                         "variables": {
                             "input": {
                                 "card_id": course_update.courseId,
-                                "field_id": "status_p_s_comit",
+                                "field_id": status_field_id,
                                 "new_value": course_update.status,
                             }
                         },
@@ -519,7 +573,7 @@ async def update_course_status(course_update: CourseUpdate):
                         "variables": {
                             "input": {
                                 "card_id": course_update.courseId,
-                                "field_id": "observa_es_do_comit",
+                                "field_id": observations_field_id,
                                 "new_value": course_update.observations,
                             }
                         },

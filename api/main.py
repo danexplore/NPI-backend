@@ -143,13 +143,15 @@ async def update_course_status_after_comite(payload: CourseUpdate, credentials: 
     course = CourseUpdate(
         courseId=str(payload.courseId),
         status=payload.status,
-        observations=payload.observations
+        observations=payload.observations,
+        is_pre_comite=payload.is_pre_comite
     )
     message = await update_course_status(course)
     redis.json.delete("home_data")
+    redis.json.delete("courses_data")
     await home_data()
     return message
-    
+
 @app.get("/courses")
 async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     cache_key = "courses_data"
@@ -214,7 +216,7 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "standby",
         "total_proposals",
         "unyleya_proposals",
-        "ymed_proposals"
+        "ymed_propostas"
     ]
     cached_data = redis.json.get(redis_key)
     if cached_data:
@@ -253,6 +255,12 @@ async def refresh_courses_ymed(credentials: HTTPBasicCredentials = Depends(verif
     redis.json.delete("ymed_courses_data")
     return await get_ymed_courses_data()
 
+@app.get("/refresh-pre-comite-courses")
+async def refresh_pre_comite_courses(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Clear cached pre-comite course data and fetch fresh information."""
+    redis.json.delete("pre_comite_courses_data")
+    return await get_pre_comite_courses_data()
+
 @app.get("/refresh-home-data")
 async def refresh_home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     """Clear cached home data and fetch fresh information."""
@@ -271,6 +279,7 @@ async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_
     await asyncio.gather(
         refresh_courses_unyleya(credentials),
         refresh_courses_ymed(credentials),
+        refresh_pre_comite_courses(credentials),
         refresh_home_data(credentials),
         refresh_users(credentials)
     )
