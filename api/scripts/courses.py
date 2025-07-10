@@ -72,10 +72,8 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
             performance="",
             videoUrl="",
             disciplinasIA=[],
-            status_pre_comite=None,
-            status_pos_comite=None,
-            observacoes_pre_comite=None,
-            observacoes_pos_comite=None,
+            status="",
+            observacoesComite="",
             cargaHoraria=0,
             fase=phase_name
         )
@@ -181,13 +179,9 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                         })
                         course.cargaHoraria += 40
             elif field["name"] == "Status Pós-Comitê":
-                course.status_pos_comite = value
-            elif field["name"] == "Status Pré-Comitê":
-                course.status_pre_comite = value
+                course.status = value
             elif field["name"] == "Observações do Comitê":
-                course.observacoes_pos_comite = value
-            elif field["name"] == "Observações do Pré-Comitê":
-                course.observacoes_pre_comite = value
+                course.observacoesComite = value
             return course
 
         # Use reduce to process all fields
@@ -609,22 +603,15 @@ async def get_home_data():
     ymed_coordinators = list(set([course.coordenador for course in ymed_courses_data.values() if course.coordenador]))
     coordinators = len(unyleya_coordinators) + len(ymed_coordinators)
 
-    # Contar propostas baseado nos novos campos de status
-    def count_status(courses_data, status_value, is_ymed=False):
-        if is_ymed:
-            return sum(1 for course in courses_data.values() if course.status == status_value)
-        else:
-            return sum(1 for course in courses_data.values() 
-                      if course.status_pos_comite == status_value or course.status_pre_comite == status_value)
-
-    approved_proposals = count_status(unyleya_courses_data, "Aprovado") + count_status(ymed_courses_data, "Aprovado", True)
-    standby_proposals = count_status(unyleya_courses_data, "Stand By") + count_status(ymed_courses_data, "Stand By", True)
-    rejected_proposals = count_status(unyleya_courses_data, "Reprovado") + count_status(ymed_courses_data, "Reprovado", True)
-    
-    # Contar pendentes (sem status em ambos os campos)
-    pendent_proposals = sum(1 for course in unyleya_courses_data.values() 
-                           if not course.status_pos_comite and not course.status_pre_comite) + \
-                       sum(1 for course in ymed_courses_data.values() if not course.status)
+    # Placeholder values for approved, pending, and rejected proposals
+    approved_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Aprovado") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "Aprovado")
+    standby_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Stand By") + \
+                        sum(1 for course in ymed_courses_data.values() if course.status == "Stand By")
+    rejected_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "Reprovado") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "Reprovado")
+    pendent_proposals = sum(1 for course in unyleya_courses_data.values() if course.status == "") + \
+                         sum(1 for course in ymed_courses_data.values() if course.status == "")
     
     result = ({
         "total_proposals": (unyleya_proposals + ymed_proposals),
