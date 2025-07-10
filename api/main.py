@@ -149,6 +149,7 @@ async def update_course_status_after_comite(payload: CourseUpdate, credentials: 
     message = await update_course_status(course)
     redis.json.delete("home_data")
     redis.json.delete("courses_data")
+    redis.json.delete("pre_comite_courses_data")
     await home_data()
     return message
 
@@ -158,7 +159,7 @@ async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_ba
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status", "observacoesComite", "statusPreComite", "observacoesPreComite", "cargaHoraria"
     ]
     cached = redis.json.get(cache_key)
     if cached:
@@ -175,8 +176,9 @@ async def get_pre_comite_courses_data(credentials: HTTPBasicCredentials = Depend
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status", "observacoesComite", "statusPreComite", "observacoesPreComite", "cargaHoraria"
     ]
+    
     cached = redis.json.get(cache_key)
     if cached:
         raw = cached[0]

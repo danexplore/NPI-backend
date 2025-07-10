@@ -53,7 +53,6 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
 
     def process_edge(edge):
         if not edge["node"]["id"] or not edge["node"]["fields"]:
-            print(f"Estrutura de edge inválida: {json.dumps(edge)}")
             return None
 
         fields = edge["node"]["fields"]
@@ -82,7 +81,6 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
 
         def process_field(course, field):
             if not field.get("name"):
-                print(f"Estrutura de campo inválida: nome ausente {json.dumps(field)}")
                 raise ValueError("Campo sem nome encontrado na resposta da API")
 
             value = field.get("native_value", "").strip() or ""
@@ -196,15 +194,12 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
         # Debug: Mostrar todos os nomes de campos disponíveis se estiver na fase pré-comitê
         if phase_name == "precomite" and len(fields) > 0:
             field_names = [f.get("name", "SEM_NOME") for f in fields]
-            print(f"Campos disponíveis na fase pré-comitê: {field_names}")
 
         # Se o slug não foi definido pelos campos, gerar um baseado no nome do curso
         if not course.slug or course.slug.strip() == "":
             if course.nome:
                 course.slug = generate_slug_from_name(course.nome)
-                print(f"Slug gerado automaticamente para '{course.nome}': '{course.slug}'")
             else:
-                print(f"ATENÇÃO: Curso {course.id} não tem nome nem slug!")
                 return None
 
         coordenador_nomes = [
@@ -250,7 +245,6 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
 
         # Verificar se o slug está vazio - isso pode causar problemas
         if not course.slug or course.slug.strip() == "":
-            print(f"ATENÇÃO: Curso {course.id} tem slug vazio! Nome: {course.nome}")
             return None
 
         return (course.slug, course)
@@ -387,7 +381,6 @@ async def get_courses_pre_comite():
         }
         api_response = ApiResponse(data=nested_data)
         courses_result = parse_api_response_unyleya(api_response, phase_name="precomite")
-        print(f"Pre-comite - Cursos processados: {len(courses_result)}")
         return courses_result
     
     except Exception as error:
@@ -472,7 +465,6 @@ async def get_courses_unyleya():
         }
         api_response = ApiResponse(data=nested_data)
         courses_result = parse_api_response_unyleya(api_response, phase_name="comite")
-        print(f"Comite - Cursos processados: {len(courses_result)}")
         return courses_result
 
     except Exception as error:
@@ -527,7 +519,6 @@ async def update_course_status(course_update: CourseUpdate):
         }
     }
     """
-    print(course_update.is_pre_comite, True)
     if not course_update.courseId:
         raise HTTPException(status_code=400, detail="Course ID é obrigatório")
 
