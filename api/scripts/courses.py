@@ -74,6 +74,8 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
             disciplinasIA=[],
             status="",
             observacoesComite="",
+            statusPreComite="",
+            observacoesPreComite="",
             cargaHoraria=0,
             fase=phase_name
         )
@@ -178,8 +180,12 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                             "tipo": "Reuso"
                         })
                         course.cargaHoraria += 40
+            elif field["name"] == "Status Pré-Comitê":
+                course.statusPreComite = value
             elif field["name"] == "Status Pós-Comitê":
                 course.status = value
+            elif field["name"] == "Observações do Pré-Comitê":
+                course.observacoesPreComite = value
             elif field["name"] == "Observações do Comitê":
                 course.observacoesComite = value
             return course

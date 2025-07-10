@@ -40,6 +40,8 @@ class CourseUnyleya(BaseModel):
     disciplinasIA: List[DisciplinaIA]
     status: Optional[str] = None
     observacoesComite: Optional[str] = None
+    statusPreComite: Optional[str] = None
+    observacoesPreComite: Optional[str] = None
     cargaHoraria: int
 
 class CourseYMED(BaseModel):
