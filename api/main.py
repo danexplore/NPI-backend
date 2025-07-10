@@ -158,7 +158,8 @@ async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_ba
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status_pre_comite", "status_pos_comite", 
+        "observacoes_pre_comite", "observacoes_pos_comite", "cargaHoraria"
     ]
     cached = redis.json.get(cache_key)
     if cached:
@@ -175,7 +176,8 @@ async def get_pre_comite_courses_data(credentials: HTTPBasicCredentials = Depend
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status_pre_comite", "status_pos_comite", 
+        "observacoes_pre_comite", "observacoes_pos_comite", "cargaHoraria"
     ]
     cached = redis.json.get(cache_key)
     if cached:

@@ -38,8 +38,10 @@ class CourseUnyleya(BaseModel):
     performance: str
     videoUrl: str
     disciplinasIA: List[DisciplinaIA]
-    status: Optional[str] = None
-    observacoesComite: Optional[str] = None
+    status_pre_comite: Optional[str] = None
+    status_pos_comite: Optional[str] = None
+    observacoes_pre_comite: Optional[str] = None
+    observacoes_pos_comite: Optional[str] = None
     cargaHoraria: int
 
 class CourseYMED(BaseModel):
