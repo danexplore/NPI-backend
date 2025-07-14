@@ -11,6 +11,14 @@ from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
 from .scripts.g2_cursos import *
+from .scripts.chatbot import (
+    ChatbotMessageRequest,
+    process_chatbot_message,
+    get_conversation_history,
+    clear_conversation_history,
+    ChatbotFeedbackRequest,
+    submit_feedback
+)
 import asyncio
 
 # Parse users from env
@@ -214,7 +222,7 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "standby",
         "total_proposals",
         "unyleya_proposals",
-        "ymed_proposals"
+        "ymed_propostas"
     ]
     cached_data = redis.json.get(redis_key)
     if cached_data:
@@ -290,7 +298,23 @@ async def get_cursos_g2_excel_file(credentials: HTTPBasicCredentials = Depends(v
 async def get_cursos_search_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_cursos_search()
 
-# Cursos Refresh Functions
-@app.post("/g2/refresh-cursos")
-async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await refresh_cursos_g2()
+# Chatbot Functions
+@app.post("/chatbot/message")
+async def send_chatbot_message(payload: ChatbotMessageRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    _ = credentials.username
+    return await process_chatbot_message(payload.message, payload.user_id)
+
+@app.get("/chatbot/conversation/{user_id}")
+async def get_chatbot_conversation(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    _ = credentials.username
+    return await get_conversation_history(user_id)
+
+@app.delete("/chatbot/conversation/{user_id}")
+async def clear_chatbot_conversation(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    _ = credentials.username
+    return await clear_conversation_history(user_id)
+
+@app.post("/chatbot/feedback")
+async def submit_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    _ = credentials.username
+    return await submit_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
