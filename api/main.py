@@ -7,6 +7,7 @@ import os
 import warnings
 from dotenv import load_dotenv
 import secrets
+import logging
 from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
@@ -20,6 +21,10 @@ from .scripts.chatbot import (
     submit_feedback
 )
 import asyncio
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Parse users from env
 USERS = {}
@@ -39,12 +44,31 @@ def verify_basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials
 
 async def lifespan(app: FastAPI):
-    # Inicializa os usuários do Pipefy
-    global users
-    users = await fetch_users_from_pipefy()
-    if not users:
-        raise HTTPException(status_code=500, detail="Erro ao buscar usuários do Pipefy")
-    yield
+    try:
+        logger.info("Iniciando aplicação...")
+        
+        # Verificar variáveis de ambiente críticas
+        required_env_vars = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "OPENAI_API_KEY"]
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            logger.error(f"Variáveis de ambiente obrigatórias não encontradas: {missing_vars}")
+            raise RuntimeError(f"Variáveis de ambiente obrigatórias não encontradas: {missing_vars}")
+        
+        # Inicializa os usuários do Pipefy
+        global users
+        logger.info("Buscando usuários do Pipefy...")
+        users = await fetch_users_from_pipefy()
+        if not users:
+            logger.error("Erro ao buscar usuários do Pipefy")
+            raise RuntimeError("Erro ao buscar usuários do Pipefy")
+        
+        logger.info("Aplicação iniciada com sucesso!")
+        yield
+        
+    except Exception as e:
+        logger.error(f"Erro durante a inicialização: {str(e)}")
+        raise
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
@@ -59,7 +83,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-redis = Redis.from_env()
+# Verificar conexão com Redis
+try:
+    redis = Redis.from_env()
+    logger.info("Conexão com Redis estabelecida com sucesso")
+except Exception as e:
+    logger.error(f"Erro ao conectar com Redis: {str(e)}")
+    raise
 
 def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
     """
@@ -87,6 +117,31 @@ def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
 @app.get("/")
 async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de verificação de saúde da aplicação"""
+    try:
+        # Verificar conexão com Redis
+        redis.ping()
+        
+        # Verificar variáveis de ambiente
+        env_status = {
+            "UPSTASH_REDIS_REST_URL": bool(os.getenv("UPSTASH_REDIS_REST_URL")),
+            "UPSTASH_REDIS_REST_TOKEN": bool(os.getenv("UPSTASH_REDIS_REST_TOKEN")),
+            "OPENAI_API_KEY": bool(os.getenv("OPENAI_API_KEY")),
+            "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS"))
+        }
+        
+        return {
+            "status": "healthy",
+            "environment": os.getenv("ENVIRONMENT", "production"),
+            "redis_connection": "ok",
+            "env_variables": env_status
+        }
+    except Exception as e:
+        logger.error(f"Health check falhou: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Health check falhou: {str(e)}")
 
 # Auth Functions
 @app.get("/api/users")
@@ -221,7 +276,7 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "pendent",
         "standby",
         "total_proposals",
-        "unyleya_proposals",
+        "unyleya_propostas",
         "ymed_propostas"
     ]
     cached_data = redis.json.get(redis_key)
