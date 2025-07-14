@@ -55,6 +55,13 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
     Processa uma mensagem do chatbot e retorna a resposta.
     """
     try:
+        logger.info(f"Processando mensagem para user_id: {user_id}")
+        
+        # Verificar se a chave da API está configurada
+        if not api_key:
+            logger.error("OPENAI_API_KEY não configurada")
+            raise HTTPException(status_code=500, detail="Chave da API OpenAI não configurada")
+        
         # Buscar histórico de conversas do usuário
         conversation_history = await get_conversation_history(user_id)
         
@@ -68,7 +75,7 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         - Status de propostas
         - Informações gerais sobre a plataforma
         
-        Responda de forma útil, profissional e concisa.
+        Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
         """
         
         # Construir mensagens para o ChatGPT
@@ -83,6 +90,8 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         # Adicionar mensagem atual
         messages.append({"role": "user", "content": message})
         
+        logger.info(f"Fazendo chamada para OpenAI com {len(messages)} mensagens")
+        
         # Fazer chamada para OpenAI usando a nova API
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -92,6 +101,7 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         )
         
         bot_response = response.choices[0].message.content
+        logger.info(f"Resposta recebida da OpenAI: {len(bot_response)} caracteres")
         
         # Salvar conversa no histórico
         message_id = str(uuid.uuid4())
@@ -104,7 +114,11 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
             "timestamp": datetime.now().isoformat()
         }
         
+    except openai.OpenAIError as e:
+        logger.error(f"Erro da OpenAI: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro da OpenAI: {str(e)}")
     except Exception as e:
+        logger.error(f"Erro geral ao processar mensagem: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
 
 async def get_conversation_history(user_id: str) -> Dict[str, Any]:

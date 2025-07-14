@@ -8,11 +8,16 @@ import warnings
 from dotenv import load_dotenv
 import secrets
 import logging
-from .lib.models import *
-from .scripts.courses import *
-from .scripts.login import *
-from .scripts.g2_cursos import *
-from .scripts.chatbot import (
+
+# Carregar variáveis de ambiente primeiro
+load_dotenv()
+
+# Imports relativos corretos
+from lib.models import *
+from scripts.courses import *
+from scripts.login import *
+from scripts.g2_cursos import *
+from scripts.chatbot import (
     ChatbotMessageRequest,
     process_chatbot_message,
     get_conversation_history,
@@ -125,11 +130,14 @@ async def health_check():
         # Verificar conexão com Redis
         redis.ping()
         
+        # Verificar OpenAI
+        openai_status = bool(os.getenv("OPENAI_API_KEY"))
+        
         # Verificar variáveis de ambiente
         env_status = {
             "UPSTASH_REDIS_REST_URL": bool(os.getenv("UPSTASH_REDIS_REST_URL")),
             "UPSTASH_REDIS_REST_TOKEN": bool(os.getenv("UPSTASH_REDIS_REST_TOKEN")),
-            "OPENAI_API_KEY": bool(os.getenv("OPENAI_API_KEY")),
+            "OPENAI_API_KEY": openai_status,
             "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS"))
         }
         
@@ -137,7 +145,9 @@ async def health_check():
             "status": "healthy",
             "environment": os.getenv("ENVIRONMENT", "production"),
             "redis_connection": "ok",
-            "env_variables": env_status
+            "openai_available": openai_status,
+            "env_variables": env_status,
+            "chatbot_ready": all(env_status.values())
         }
     except Exception as e:
         logger.error(f"Health check falhou: {str(e)}")
@@ -356,20 +366,31 @@ async def get_cursos_search_data(credentials: HTTPBasicCredentials = Depends(ver
 # Chatbot Functions
 @app.post("/chatbot/message")
 async def send_chatbot_message(payload: ChatbotMessageRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    _ = credentials.username
-    return await process_chatbot_message(payload.message, payload.user_id)
+    """Processar mensagem do chatbot"""
+    try:
+        logger.info(f"Recebendo mensagem do chatbot: user_id={payload.user_id}")
+        result = await process_chatbot_message(payload.message, payload.user_id)
+        logger.info(f"Mensagem processada com sucesso para user_id={payload.user_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem do chatbot: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
 
-@app.get("/chatbot/conversation/{user_id}")
-async def get_chatbot_conversation(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    _ = credentials.username
-    return await get_conversation_history(user_id)
-
-@app.delete("/chatbot/conversation/{user_id}")
-async def clear_chatbot_conversation(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    _ = credentials.username
-    return await clear_conversation_history(user_id)
-
-@app.post("/chatbot/feedback")
-async def submit_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    _ = credentials.username
-    return await submit_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
+@app.get("/chatbot/test")
+async def test_chatbot(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Endpoint de teste do chatbot"""
+    try:
+        # Teste simples para verificar se tudo está funcionando
+        test_message = "Olá, este é um teste do chatbot"
+        test_user_id = "test_user"
+        
+        result = await process_chatbot_message(test_message, test_user_id)
+        
+        return {
+            "status": "success",
+            "message": "Chatbot funcionando corretamente",
+            "test_result": result
+        }
+    except Exception as e:
+        logger.error(f"Teste do chatbot falhou: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Teste do chatbot falhou: {str(e)}")
