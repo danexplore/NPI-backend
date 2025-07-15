@@ -7,11 +7,29 @@ import os
 import warnings
 from dotenv import load_dotenv
 import secrets
+import logging
+
+# Carregar variáveis de ambiente primeiro
+load_dotenv()
+
+# Imports relativos corretos
 from .lib.models import *
 from .scripts.courses import *
 from .scripts.login import *
 from .scripts.g2_cursos import *
+from .scripts.chatbot import (
+    ChatbotMessageRequest,
+    process_chatbot_message,
+    get_conversation_history,
+    clear_conversation_history,
+    ChatbotFeedbackRequest,
+    submit_feedback
+)
 import asyncio
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Parse users from env
 USERS = {}
@@ -31,12 +49,31 @@ def verify_basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials
 
 async def lifespan(app: FastAPI):
-    # Inicializa os usuários do Pipefy
-    global users
-    users = await fetch_users_from_pipefy()
-    if not users:
-        raise HTTPException(status_code=500, detail="Erro ao buscar usuários do Pipefy")
-    yield
+    try:
+        logger.info("Iniciando aplicação...")
+        
+        # Verificar variáveis de ambiente críticas
+        required_env_vars = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "OPENAI_API_KEY"]
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            logger.error(f"Variáveis de ambiente obrigatórias não encontradas: {missing_vars}")
+            raise RuntimeError(f"Variáveis de ambiente obrigatórias não encontradas: {missing_vars}")
+        
+        # Inicializa os usuários do Pipefy
+        global users
+        logger.info("Buscando usuários do Pipefy...")
+        users = await fetch_users_from_pipefy()
+        if not users:
+            logger.error("Erro ao buscar usuários do Pipefy")
+            raise RuntimeError("Erro ao buscar usuários do Pipefy")
+        
+        logger.info("Aplicação iniciada com sucesso!")
+        yield
+        
+    except Exception as e:
+        logger.error(f"Erro durante a inicialização: {str(e)}")
+        raise
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
@@ -51,7 +88,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-redis = Redis.from_env()
+# Verificar conexão com Redis
+try:
+    redis = Redis.from_env()
+    logger.info("Conexão com Redis estabelecida com sucesso")
+except Exception as e:
+    logger.error(f"Erro ao conectar com Redis: {str(e)}")
+    raise
 
 def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
     """
@@ -79,6 +122,36 @@ def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
 @app.get("/")
 async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de verificação de saúde da aplicação"""
+    try:
+        # Verificar conexão com Redis
+        redis.ping()
+        
+        # Verificar OpenAI
+        openai_status = bool(os.getenv("OPENAI_API_KEY"))
+        
+        # Verificar variáveis de ambiente
+        env_status = {
+            "UPSTASH_REDIS_REST_URL": bool(os.getenv("UPSTASH_REDIS_REST_URL")),
+            "UPSTASH_REDIS_REST_TOKEN": bool(os.getenv("UPSTASH_REDIS_REST_TOKEN")),
+            "OPENAI_API_KEY": openai_status,
+            "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS"))
+        }
+        
+        return {
+            "status": "healthy",
+            "environment": os.getenv("ENVIRONMENT", "production"),
+            "redis_connection": "ok",
+            "openai_available": openai_status,
+            "env_variables": env_status,
+            "chatbot_ready": all(env_status.values())
+        }
+    except Exception as e:
+        logger.error(f"Health check falhou: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Health check falhou: {str(e)}")
 
 # Auth Functions
 @app.get("/api/users")
@@ -217,7 +290,11 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "pendent",
         "standby",
         "total_proposals",
+<<<<<<< HEAD
         "unyleya_proposals",
+=======
+        "unyleya_propostas",
+>>>>>>> dev-backend
         "ymed_propostas"
     ]
     cached_data = redis.json.get(redis_key)
@@ -301,7 +378,67 @@ async def get_cursos_g2_excel_file(credentials: HTTPBasicCredentials = Depends(v
 async def get_cursos_search_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_cursos_search()
 
-# Cursos Refresh Functions
-@app.post("/g2/refresh-cursos")
-async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await refresh_cursos_g2()
+# Chatbot Functions
+@app.post("/chatbot/message")
+async def send_chatbot_message(payload: ChatbotMessageRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Processar mensagem do chatbot"""
+    try:
+        logger.info(f"Recebendo mensagem do chatbot: user_id={payload.user_id}")
+        result = await process_chatbot_message(payload.message, payload.user_id)
+        logger.info(f"Mensagem processada com sucesso para user_id={payload.user_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem do chatbot: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
+
+@app.get("/chatbot/history/{user_id}")
+async def get_chatbot_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Buscar histórico de conversas"""
+    try:
+        logger.info(f"Buscando histórico para user_id: {user_id}")
+        result = await get_conversation_history(user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar histórico: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar histórico: {str(e)}")
+
+@app.delete("/chatbot/history/{user_id}")
+async def clear_chatbot_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Limpar histórico de conversas"""
+    try:
+        logger.info(f"Limpando histórico para user_id: {user_id}")
+        result = await clear_conversation_history(user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao limpar histórico: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar histórico: {str(e)}")
+
+@app.post("/chatbot/feedback")
+async def submit_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Enviar feedback sobre uma mensagem"""
+    try:
+        logger.info(f"Recebendo feedback: user_id={payload.user_id}, message_id={payload.message_id}")
+        result = await submit_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao enviar feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
+
+@app.get("/chatbot/test")
+async def test_chatbot(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Endpoint de teste do chatbot"""
+    try:
+        # Teste simples para verificar se tudo está funcionando
+        test_message = "Olá, este é um teste do chatbot"
+        test_user_id = "test_user"
+        
+        result = await process_chatbot_message(test_message, test_user_id)
+        
+        return {
+            "status": "success",
+            "message": "Chatbot funcionando corretamente",
+            "test_result": result
+        }
+    except Exception as e:
+        logger.error(f"Teste do chatbot falhou: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Teste do chatbot falhou: {str(e)}")
