@@ -328,6 +328,12 @@ async def refresh_courses_unyleya(credentials: HTTPBasicCredentials = Depends(ve
     redis.json.delete("courses_data")
     return await get_courses_data()
 
+@app.get("/refresh-courses-pre-comite")
+async def refresh_courses_pre_comite(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Clear cached pre-comite course data and fetch fresh information."""
+    redis.json.delete("pre_comite_courses_data")
+    return await get_pre_comite_courses_data(credentials)
+
 @app.get("/refresh-courses-ymed")
 async def refresh_courses_ymed(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     """Clear cached course data and fetch fresh information."""
@@ -357,6 +363,7 @@ async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_
     """Clear cached data."""
     await asyncio.gather(
         refresh_courses_unyleya(credentials),
+        refresh_courses_pre_comite(credentials),
         refresh_courses_ymed(credentials),
         refresh_pre_comite_courses(credentials),
         refresh_home_data(credentials),
