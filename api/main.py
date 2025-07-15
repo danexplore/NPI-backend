@@ -216,23 +216,20 @@ async def update_course_status_after_comite(payload: CourseUpdate, credentials: 
     course = CourseUpdate(
         courseId=str(payload.courseId),
         status=payload.status,
-        observations=payload.observations,
-        is_pre_comite=payload.is_pre_comite
+        observations=payload.observations
     )
     message = await update_course_status(course)
     redis.json.delete("home_data")
-    redis.json.delete("courses_data")
-    redis.json.delete("pre_comite_courses_data")
     await home_data()
     return message
-
+    
 @app.get("/courses")
 async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     cache_key = "courses_data"
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "statusPreComite", "observacoesPreComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
     ]
     cached = redis.json.get(cache_key)
     if cached:
@@ -249,9 +246,8 @@ async def get_pre_comite_courses_data(credentials: HTTPBasicCredentials = Depend
     field_order = [
         "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
         "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "statusPreComite", "observacoesPreComite", "cargaHoraria"
+        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
     ]
-    
     cached = redis.json.get(cache_key)
     if cached:
         raw = cached[0]
@@ -290,11 +286,7 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "pendent",
         "standby",
         "total_proposals",
-<<<<<<< HEAD
-        "unyleya_proposals",
-=======
         "unyleya_propostas",
->>>>>>> dev-backend
         "ymed_propostas"
     ]
     cached_data = redis.json.get(redis_key)
@@ -314,12 +306,12 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
     return ordered
 
 @app.get("/get-card-comments")
-async def get_card_comments(card_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+async def get_card_comments(card_id: int, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     return await get_card_comments_data(card_id=card_id)
 
 @app.post("/create-card-comment")
-async def create_card_comment(payload: CardComment, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    return await create_comment_in_card(card_id=payload.card_id, text=payload.text)
+async def create_card_comment(card_id: int, text: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    return await create_comment_in_card(card_id=card_id, text=text)
 
 # Refresh Functions
 @app.get("/refresh-courses-unyleya")
@@ -340,12 +332,6 @@ async def refresh_courses_ymed(credentials: HTTPBasicCredentials = Depends(verif
     redis.json.delete("ymed_courses_data")
     return await get_ymed_courses_data()
 
-@app.get("/refresh-pre-comite-courses")
-async def refresh_pre_comite_courses(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    """Clear cached pre-comite course data and fetch fresh information."""
-    redis.json.delete("pre_comite_courses_data")
-    return await get_pre_comite_courses_data()
-
 @app.get("/refresh-home-data")
 async def refresh_home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     """Clear cached home data and fetch fresh information."""
@@ -365,7 +351,6 @@ async def refresh_data(credentials: HTTPBasicCredentials = Depends(verify_basic_
         refresh_courses_unyleya(credentials),
         refresh_courses_pre_comite(credentials),
         refresh_courses_ymed(credentials),
-        refresh_pre_comite_courses(credentials),
         refresh_home_data(credentials),
         refresh_users(credentials)
     )
