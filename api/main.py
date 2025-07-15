@@ -13,11 +13,11 @@ import logging
 load_dotenv()
 
 # Imports relativos corretos
-from lib.models import *
-from scripts.courses import *
-from scripts.login import *
-from scripts.g2_cursos import *
-from scripts.chatbot import (
+from .lib.models import *
+from .scripts.courses import *
+from .scripts.login import *
+from .scripts.g2_cursos import *
+from .scripts.chatbot import (
     ChatbotMessageRequest,
     process_chatbot_message,
     get_conversation_history,
@@ -375,6 +375,39 @@ async def send_chatbot_message(payload: ChatbotMessageRequest, credentials: HTTP
     except Exception as e:
         logger.error(f"Erro ao processar mensagem do chatbot: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
+
+@app.get("/chatbot/history/{user_id}")
+async def get_chatbot_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Buscar histórico de conversas"""
+    try:
+        logger.info(f"Buscando histórico para user_id: {user_id}")
+        result = await get_conversation_history(user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar histórico: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar histórico: {str(e)}")
+
+@app.delete("/chatbot/history/{user_id}")
+async def clear_chatbot_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Limpar histórico de conversas"""
+    try:
+        logger.info(f"Limpando histórico para user_id: {user_id}")
+        result = await clear_conversation_history(user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao limpar histórico: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar histórico: {str(e)}")
+
+@app.post("/chatbot/feedback")
+async def submit_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Enviar feedback sobre uma mensagem"""
+    try:
+        logger.info(f"Recebendo feedback: user_id={payload.user_id}, message_id={payload.message_id}")
+        result = await submit_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao enviar feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
 
 @app.get("/chatbot/test")
 async def test_chatbot(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):

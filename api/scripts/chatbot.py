@@ -74,7 +74,9 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         - Coordenadores e responsáveis
         - Status de propostas
         - Informações gerais sobre a plataforma
-        
+        - Dúvidas frequentes
+        - Respostas a perguntas comuns dos usuários
+ 
         Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
         """
         
@@ -94,7 +96,7 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         
         # Fazer chamada para OpenAI usando a nova API
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1",
             messages=messages,
             max_tokens=500,
             temperature=0.7
