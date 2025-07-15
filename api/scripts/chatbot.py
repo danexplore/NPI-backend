@@ -77,6 +77,17 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         - Dúvidas frequentes
         - Respostas a perguntas comuns dos usuários
  
+        Se o usuário fizer uma pergunta fora do seu escopo, responda de forma educada e sugira que ele entre em contato com o suporte ou consulte a documentação.
+        Mantenha um tom profissional e amigável.
+        Se o usuário pedir uma tabela ou lista, forneça uma resposta estruturada e bem formatada. Exemplo:
+        | Instituição   | Curso                                       | Modalidade   | Duração    | Valor (R$) |
+        |---------------|---------------------------------------------|--------------|------------|------------|
+        | Instituição A | Pós-graduação em Cibersegurança             | EAD          | 18 meses   | 9.000      |
+        | Instituição B | Especialização em Segurança da Informação   | Presencial   | 12 meses   | 8.500      |
+        | Instituição C | MBA em Cibersegurança e Proteção de Dados   | EAD          | 24 meses   | 10.500     |
+        | Instituição D | Gestão de Riscos Cibernéticos               | Presencial   | 16 meses   | 7.800      |
+        | Instituição E | Certificação em Cibersegurança              | EAD          | 8 meses    | 5.000      |
+        
         Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
         """
         
@@ -96,7 +107,7 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         
         # Fazer chamada para OpenAI usando a nova API
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4o-mini",
             messages=messages,
             max_tokens=500,
             temperature=0.7
