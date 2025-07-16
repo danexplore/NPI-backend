@@ -32,20 +32,12 @@ class ChatbotMessageRequest(BaseModel):
     message: str
     user_id: str
 
-class ChatbotFeedbackRequest(BaseModel):
-    user_id: str
-    message_id: str
-    rating: int
-    feedback: Optional[str] = None
-
 class ConversationMessage(BaseModel):
     id: str
     user_id: str
     message: str
     response: str
     timestamp: datetime
-    feedback_rating: Optional[int] = None
-    feedback_text: Optional[str] = None
 
 def is_table_request(message: str) -> bool:
     palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]
@@ -391,9 +383,7 @@ async def save_message_to_history(user_id: str, message_id: str, message: str, r
             "id": message_id,
             "message": message,
             "response": response,
-            "timestamp": datetime.now().isoformat(),
-            "feedback_rating": None,
-            "feedback_text": None
+            "timestamp": datetime.now().isoformat()
         }
         
         existing_history["messages"].append(new_message)
@@ -408,41 +398,67 @@ async def save_message_to_history(user_id: str, message_id: str, message: str, r
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao salvar mensagem: {str(e)}")
 
-async def submit_feedback(user_id: str, message_id: str, rating: int, feedback: Optional[str] = None) -> Dict[str, Any]:
+async def test_chatbot():
     """
-    Submete feedback para uma mensagem específica.
+    Função para testar o chatbot via prompt de comando.
     """
-    try:
-        cache_key = f"chatbot_conversation_{user_id}"
-        conversation_history = await get_conversation_history(user_id)
-        
-        # Encontrar e atualizar a mensagem específica
-        for message in conversation_history["messages"]:
-            if message["id"] == message_id:
-                message["feedback_rating"] = rating
-                message["feedback_text"] = feedback
+    print("=== Testador do Chatbot Unyleya ===")
+    print("Comandos disponíveis:")
+    print("- Digite uma mensagem para conversar")
+    print("- Digite 'historico' para ver o histórico")
+    print("- Digite 'limpar' para limpar o histórico")
+    print("- Digite 'sair' para encerrar")
+    print("=" * 40)
+    
+    user_id = "test_user"
+    
+    while True:
+        try:
+            user_input = input("\nVocê: ").strip()
+            
+            if not user_input:
+                continue
+                
+            if user_input.lower() == 'sair':
+                print("Encerrando o teste...")
                 break
-        else:
-            raise HTTPException(status_code=404, detail="Mensagem não encontrada")
-        
-        # Salvar histórico atualizado
-        redis.json.set(cache_key, path="$", value=conversation_history)
-        
-        # Salvar feedback separadamente para análise
-        feedback_key = f"chatbot_feedback_{message_id}"
-        feedback_data = {
-            "user_id": user_id,
-            "message_id": message_id,
-            "rating": rating,
-            "feedback": feedback,
-            "timestamp": datetime.now().isoformat()
-        }
-        redis.json.set(feedback_key, path="$", value=feedback_data)
-        
-        return {
-            "success": True,
-            "message": "Feedback enviado com sucesso"
-        }
-        
+                
+            elif user_input.lower() == 'historico':
+                history = await get_conversation_history(user_id)
+                print("\n=== Histórico de Conversas ===")
+                if not history["messages"]:
+                    print("Nenhuma conversa encontrada.")
+                else:
+                    for i, msg in enumerate(history["messages"], 1):
+                        print(f"\n{i}. Você: {msg['message']}")
+                        print(f"   Bot: {msg['response']}")
+                        print(f"   Horário: {msg['timestamp']}")
+                continue
+                
+            elif user_input.lower() == 'limpar':
+                await clear_conversation_history(user_id)
+                print("Histórico limpo com sucesso!")
+                continue
+            
+            # Processar mensagem normal
+            print("Bot está pensando...")
+            response = await process_chatbot_message(user_input, user_id)
+            
+            print(f"\nBot: {response['response']}")
+            
+        except KeyboardInterrupt:
+            print("\n\nEncerrando o teste...")
+            break
+        except Exception as e:
+            print(f"Erro: {str(e)}")
+            print("Tente novamente.")
+
+if __name__ == "__main__":
+    print("Iniciando teste do chatbot...")
+    try:
+        import asyncio
+        asyncio.run(test_chatbot())
+    except KeyboardInterrupt:
+        print("\nTeste interrompido pelo usuário.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
+        print(f"Erro ao iniciar teste: {str(e)}")

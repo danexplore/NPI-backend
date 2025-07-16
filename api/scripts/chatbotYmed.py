@@ -34,20 +34,12 @@ class ChatbotMessageRequest(BaseModel):
     message: str
     user_id: str
 
-class ChatbotFeedbackRequest(BaseModel):
-    user_id: str
-    message_id: str
-    rating: int
-    feedback: Optional[str] = None
-
 class ConversationMessage(BaseModel):
     id: str
     user_id: str
     message: str
     response: str
     timestamp: datetime
-    feedback_rating: Optional[int] = None
-    feedback_text: Optional[str] = None
 
 def format_json_as_table(text: str) -> str:
     """
@@ -351,9 +343,7 @@ async def save_message_to_history(user_id: str, message_id: str, message: str, r
             "id": message_id,
             "message": message,
             "response": response,
-            "timestamp": datetime.now().isoformat(),
-            "feedback_rating": None,
-            "feedback_text": None
+            "timestamp": datetime.now().isoformat()
         }
         
         existing_history["messages"].append(new_message)
@@ -407,8 +397,6 @@ async def test_chatbot():
                         print(f"\n{i}. Você: {msg['message']}")
                         print(f"   Bot: {msg['response']}")
                         print(f"   Horário: {msg['timestamp']}")
-                        if msg.get('feedback_rating'):
-                            print(f"   Avaliação: {msg['feedback_rating']}/5")
                 continue
                 
             elif user_input.lower() == 'limpar':
@@ -421,20 +409,6 @@ async def test_chatbot():
             response = await process_chatbot_message(user_input, user_id)
             
             print(f"\nBot: {response['response']}")
-            
-            # Opção de feedback
-            feedback_input = input("\nDeseja avaliar esta resposta? (s/n): ").strip().lower()
-            if feedback_input == 's':
-                try:
-                    rating = int(input("Avaliação de 1 a 5: "))
-                    if 1 <= rating <= 5:
-                        feedback_text = input("Comentário (opcional): ").strip()
-                        await submit_feedback(user_id, response['message_id'], rating, feedback_text or None)
-                        print("Feedback enviado com sucesso!")
-                    else:
-                        print("Avaliação deve ser entre 1 e 5.")
-                except ValueError:
-                    print("Avaliação inválida.")
             
         except KeyboardInterrupt:
             print("\n\nEncerrando o teste...")
