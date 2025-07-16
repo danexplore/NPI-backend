@@ -1,9 +1,6 @@
-from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import traceback
 from openai import OpenAI
-import requests
 import logging
 from datetime import datetime
 from pydantic import BaseModel
@@ -13,7 +10,6 @@ import json
 import uuid
 from upstash_redis import Redis
 from fastapi import HTTPException
-import asyncio
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)

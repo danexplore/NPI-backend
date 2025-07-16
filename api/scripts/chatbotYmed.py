@@ -1,10 +1,7 @@
-from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import traceback
 import asyncio
 from openai import OpenAI
-import requests
 import logging
 from datetime import datetime
 from pydantic import BaseModel
