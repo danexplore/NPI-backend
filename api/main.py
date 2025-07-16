@@ -21,16 +21,12 @@ from .scripts.chatbot import (
     ChatbotMessageRequest,
     process_chatbot_message,
     get_conversation_history,
-    clear_conversation_history,
-    ChatbotFeedbackRequest,
-    submit_feedback
+    clear_conversation_history
 )
 from .scripts.chatbotYmed import (
-    process_chatbot_message as process_ymed_chatbot_message,
-    get_conversation_history as get_ymed_conversation_history,
-    clear_conversation_history as clear_ymed_conversation_history,
-    submit_feedback as submit_ymed_feedback,
-    get_or_create_thread_id
+    process_chatbot_message as process_ymed_message,
+    get_conversation_history as get_ymed_history,
+    clear_conversation_history as clear_ymed_history
 )
 import asyncio
 
@@ -412,17 +408,6 @@ async def clear_chatbot_history(user_id: str, credentials: HTTPBasicCredentials 
         logger.error(f"Erro ao limpar histórico: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao limpar histórico: {str(e)}")
 
-@app.post("/chatbot/feedback")
-async def submit_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    """Enviar feedback sobre uma mensagem"""
-    try:
-        logger.info(f"Recebendo feedback: user_id={payload.user_id}, message_id={payload.message_id}")
-        result = await submit_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
-        return result
-    except Exception as e:
-        logger.error(f"Erro ao enviar feedback: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
-
 @app.get("/chatbot/test")
 async def test_chatbot(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
     """Endpoint de teste do chatbot"""
@@ -448,7 +433,7 @@ async def send_ymed_chatbot_message(payload: ChatbotMessageRequest, credentials:
     """Processar mensagem do chatbot Ymed usando Assistants API"""
     try:
         logger.info(f"Recebendo mensagem do chatbot Ymed: user_id={payload.user_id}")
-        result = await process_ymed_chatbot_message(payload.message, payload.user_id)
+        result = await process_ymed_message(payload.message, payload.user_id)
         logger.info(f"Mensagem Ymed processada com sucesso para user_id={payload.user_id}")
         return result
     except Exception as e:
@@ -460,7 +445,7 @@ async def get_ymed_chatbot_history(user_id: str, credentials: HTTPBasicCredentia
     """Buscar histórico de conversas do chatbot Ymed"""
     try:
         logger.info(f"Buscando histórico Ymed para user_id: {user_id}")
-        result = await get_ymed_conversation_history(user_id)
+        result = await get_ymed_history(user_id)
         return result
     except Exception as e:
         logger.error(f"Erro ao buscar histórico Ymed: {str(e)}")
@@ -471,37 +456,11 @@ async def clear_ymed_chatbot_history(user_id: str, credentials: HTTPBasicCredent
     """Limpar histórico de conversas do chatbot Ymed"""
     try:
         logger.info(f"Limpando histórico Ymed para user_id: {user_id}")
-        result = await clear_ymed_conversation_history(user_id)
+        result = await clear_ymed_history(user_id)
         return result
     except Exception as e:
         logger.error(f"Erro ao limpar histórico Ymed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao limpar histórico Ymed: {str(e)}")
-
-@app.post("/chatbot-ymed/feedback")
-async def submit_ymed_chatbot_feedback(payload: ChatbotFeedbackRequest, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    """Enviar feedback sobre uma mensagem do chatbot Ymed"""
-    try:
-        logger.info(f"Recebendo feedback Ymed: user_id={payload.user_id}, message_id={payload.message_id}")
-        result = await submit_ymed_feedback(payload.user_id, payload.message_id, payload.rating, payload.feedback)
-        return result
-    except Exception as e:
-        logger.error(f"Erro ao enviar feedback Ymed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback Ymed: {str(e)}")
-
-@app.get("/chatbot-ymed/thread/{user_id}")
-async def get_ymed_thread_id(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    """Obter ou criar thread ID para o usuário no chatbot Ymed"""
-    try:
-        logger.info(f"Obtendo thread ID para user_id: {user_id}")
-        thread_id = await get_or_create_thread_id(user_id)
-        return {
-            "success": True,
-            "user_id": user_id,
-            "thread_id": thread_id
-        }
-    except Exception as e:
-        logger.error(f"Erro ao obter thread ID: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao obter thread ID: {str(e)}")
 
 @app.get("/chatbot-ymed/test")
 async def test_ymed_chatbot(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
@@ -511,7 +470,7 @@ async def test_ymed_chatbot(credentials: HTTPBasicCredentials = Depends(verify_b
         test_message = "Olá, este é um teste do chatbot Ymed"
         test_user_id = "test_ymed_user"
         
-        result = await process_ymed_chatbot_message(test_message, test_user_id)
+        result = await process_ymed_message(test_message, test_user_id)
         
         return {
             "status": "success",
