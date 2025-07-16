@@ -241,7 +241,9 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         # 3. Executar o assistente
         run = client.beta.threads.runs.create(
             thread_id=thread_id,
-            assistant_id=ASSISTANT_ID
+            assistant_id=ASSISTANT_ID,
+            max_completion_tokens=2500,
+            temperature=1.0
         )
 
         # 4. Aguardar conclusão
@@ -365,45 +367,6 @@ async def save_message_to_history(user_id: str, message_id: str, message: str, r
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao salvar mensagem: {str(e)}")
-
-async def submit_feedback(user_id: str, message_id: str, rating: int, feedback: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Submete feedback para uma mensagem específica.
-    """
-    try:
-        cache_key = f"chatbot_conversation_{user_id}"
-        conversation_history = await get_conversation_history(user_id)
-        
-        # Encontrar e atualizar a mensagem específica
-        for message in conversation_history["messages"]:
-            if message["id"] == message_id:
-                message["feedback_rating"] = rating
-                message["feedback_text"] = feedback
-                break
-        else:
-            raise HTTPException(status_code=404, detail="Mensagem não encontrada")
-        
-        # Salvar histórico atualizado
-        redis.json.set(cache_key, path="$", value=conversation_history)
-        
-        # Salvar feedback separadamente para análise
-        feedback_key = f"chatbot_feedback_{message_id}"
-        feedback_data = {
-            "user_id": user_id,
-            "message_id": message_id,
-            "rating": rating,
-            "feedback": feedback,
-            "timestamp": datetime.now().isoformat()
-        }
-        redis.json.set(feedback_key, path="$", value=feedback_data)
-        
-        return {
-            "success": True,
-            "message": "Feedback enviado com sucesso"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
 
 def is_table_request(message: str) -> bool:
     palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]

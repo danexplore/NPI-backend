@@ -295,9 +295,9 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         
         # Construir mensagens para o ChatGPT
         messages = [{"role": "system", "content": system_prompt}]
-        
-        # Adicionar histórico recente (últimas 10 mensagens)
-        recent_history = conversation_history.get("messages", [])[-10:]
+
+        # Adicionar histórico recente (últimas 2 mensagens)
+        recent_history = conversation_history.get("messages", [])[-2:]
         for msg in recent_history:
             messages.append({"role": "user", "content": msg["message"]})
             messages.append({"role": "assistant", "content": msg["response"]})
@@ -309,10 +309,10 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         
         # Fazer chamada para OpenAI usando a nova API
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1",
             messages=messages,
-            max_tokens=500,
-            temperature=0.7
+            max_tokens=2500,
+            temperature=1.0
         )
         
         bot_response = response.choices[0].message.content
