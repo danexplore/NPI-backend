@@ -13,6 +13,7 @@ import json
 import uuid
 from upstash_redis import Redis
 from fastapi import HTTPException
+import asyncio
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +51,111 @@ class ConversationMessage(BaseModel):
     feedback_rating: Optional[int] = None
     feedback_text: Optional[str] = None
 
+def is_table_request(message: str) -> bool:
+    palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]
+    return any(p in message.lower() for p in palavras_chave)
+
+def format_json_as_table(text: str) -> str:
+    """
+    Converte texto JSON em uma tabela formatada.
+    """
+    try:
+        # Tentar extrair JSON do texto
+        import re
+        
+        # Procurar por blocos JSON no texto
+        json_pattern = r'\{.*?\}|\[.*?\]'
+        json_matches = re.findall(json_pattern, text, re.DOTALL)
+        
+        if not json_matches:
+            return text
+            
+        formatted_text = text
+        
+        for json_str in json_matches:
+            try:
+                # Tentar fazer parse do JSON
+                data = json.loads(json_str)
+                
+                # Se é uma lista de objetos, criar tabela
+                if isinstance(data, list) and data and isinstance(data[0], dict):
+                    table = format_dict_list_as_table(data)
+                    formatted_text = formatted_text.replace(json_str, table)
+                    
+                # Se é um objeto simples, criar tabela de propriedades
+                elif isinstance(data, dict):
+                    table = format_dict_as_table(data)
+                    formatted_text = formatted_text.replace(json_str, table)
+                    
+            except json.JSONDecodeError:
+                continue
+                
+        return formatted_text
+        
+    except Exception as e:
+        logger.error(f"Erro ao formatar tabela: {str(e)}")
+        return text
+
+def format_dict_list_as_table(data: List[Dict]) -> str:
+    """
+    Converte uma lista de dicionários em uma tabela HTML formatada.
+    """
+    if not data:
+        return ""
+        
+    # Obter todas as chaves únicas
+    all_keys = set()
+    for item in data:
+        all_keys.update(item.keys())
+    
+    headers = list(all_keys)
+    
+    # Criar tabela HTML
+    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+    
+    # Criar cabeçalho
+    table += '  <thead>\n    <tr>\n'
+    for header in headers:
+        table += f'      <th style="padding: 8px; background-color: #f2f2f2;">{header}</th>\n'
+    table += '    </tr>\n  </thead>\n'
+    
+    # Criar corpo da tabela
+    table += '  <tbody>\n'
+    for item in data:
+        table += '    <tr>\n'
+        for key in headers:
+            value = str(item.get(key, ""))
+            table += f'      <td style="padding: 8px;">{value}</td>\n'
+        table += '    </tr>\n'
+    table += '  </tbody>\n'
+    table += '</table>'
+        
+    return table
+
+def format_dict_as_table(data: Dict) -> str:
+    """
+    Converte um dicionário em uma tabela HTML de propriedades.
+    """
+    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+    
+    # Criar cabeçalho
+    table += '  <thead>\n    <tr>\n'
+    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Propriedade</th>\n'
+    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Valor</th>\n'
+    table += '    </tr>\n  </thead>\n'
+    
+    # Criar corpo da tabela
+    table += '  <tbody>\n'
+    for key, value in data.items():
+        table += '    <tr>\n'
+        table += f'      <td style="padding: 8px;">{key}</td>\n'
+        table += f'      <td style="padding: 8px;">{value}</td>\n'
+        table += '    </tr>\n'
+    table += '  </tbody>\n'
+    table += '</table>'
+        
+    return table
+
 async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
     """
     Processa uma mensagem do chatbot e retorna a resposta.
@@ -76,16 +182,28 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         - Informações gerais sobre a plataforma
         - Dúvidas frequentes
         - Respostas a perguntas comuns dos usuários
- 
+        Se o usuário perguntar sobre concorrentes leve em consideração os dados fornecidos por sites terceiros, sempre dando o link da fonte.
+        Se o usuário pedir uma tabela, comparação, ou uma lista formatada, você deve responder usando o seguinte formato JSON:
+
+        {
+        "tabela": [
+            {
+            "coluna1": "valor",
+            "coluna2": "valor",
+            ...
+            }
+        ]
+        }
+
+        Não inclua explicações junto com o JSON. Retorne apenas o JSON puro.
+
+        Se o usuário fizer qualquer outra pergunta, responda normalmente em texto, com explicações, análises ou conclusões.
         Se o usuário fizer uma pergunta fora do seu escopo, responda de forma educada e sugira que ele entre em contato com o suporte ou consulte a documentação.
         Mantenha um tom profissional e amigável.
-        Se o usuário pedir uma tabela ou lista, forneça uma resposta estruturada e bem formatada. Exemplo:
-        | Instituição   | Curso                                       | Modalidade   | Duração    | Valor (R$) |
-        |---------------|---------------------------------------------|--------------|------------|------------|
-        | Instituição A | Pós-graduação em Cibersegurança             | EAD          | 18 meses   | 9.000      |
-        | Instituição B | Especialização em Segurança da Informação   | Presencial   | 12 meses   | 8.500      |
-        
+        Sempre forneça informações úteis e relevantes. Se você não souber a resposta, seja honesto e sugira que o usuário consulte outras fontes ou entre em contato com o suporte.
         Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
+        
+        Quando solicitado para criar tabelas ou comparações, forneça dados estruturados em formato JSON que possam ser convertidos em tabelas.
         """
         
         # Construir mensagens para o ChatGPT
@@ -112,6 +230,10 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         
         bot_response = response.choices[0].message.content
         logger.info(f"Resposta recebida da OpenAI: {len(bot_response)} caracteres")
+        
+        # Verificar se é uma solicitação de tabela e formatar se necessário
+        if is_table_request(message):
+            bot_response = format_json_as_table(bot_response)
         
         # Salvar conversa no histórico
         message_id = str(uuid.uuid4())
