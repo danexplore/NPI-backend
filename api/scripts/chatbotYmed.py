@@ -57,12 +57,19 @@ def format_json_as_table(text: str) -> str:
     Converte texto JSON em uma tabela formatada.
     """
     try:
-        # Tentar extrair JSON do texto
         import re
         
-        # Procurar por blocos JSON no texto
-        json_pattern = r'\{.*?\}|\[.*?\]'
-        json_matches = re.findall(json_pattern, text, re.DOTALL)
+        # Primeiro, tentar limpar e corrigir o JSON
+        cleaned_text = clean_json_text(text)
+        
+        # Procurar por estruturas JSON válidas
+        json_pattern = r'\{[^{}]*"tabela"[^{}]*:\s*\[[^\]]*\]\s*\}'
+        json_matches = re.findall(json_pattern, cleaned_text, re.DOTALL)
+        
+        if not json_matches:
+            # Fallback: procurar por arrays JSON simples
+            json_pattern = r'\[[^\[\]]*\{[^{}]*\}[^\[\]]*\]'
+            json_matches = re.findall(json_pattern, cleaned_text, re.DOTALL)
         
         if not json_matches:
             return text
@@ -74,17 +81,25 @@ def format_json_as_table(text: str) -> str:
                 # Tentar fazer parse do JSON
                 data = json.loads(json_str)
                 
-                # Se é uma lista de objetos, criar tabela
-                if isinstance(data, list) and data and isinstance(data[0], dict):
+                # Se tem propriedade "tabela", usar essa
+                if isinstance(data, dict) and "tabela" in data:
+                    table_data = data["tabela"]
+                    if isinstance(table_data, list) and table_data:
+                        table = format_dict_list_as_table(table_data)
+                        formatted_text = formatted_text.replace(json_str, table)
+                        
+                # Se é uma lista de objetos diretamente
+                elif isinstance(data, list) and data and isinstance(data[0], dict):
                     table = format_dict_list_as_table(data)
                     formatted_text = formatted_text.replace(json_str, table)
                     
-                # Se é um objeto simples, criar tabela de propriedades
-                elif isinstance(data, dict):
-                    table = format_dict_as_table(data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Erro ao fazer parse do JSON: {str(e)}")
+                # Tentar extrair dados manualmente
+                manual_data = extract_data_manually(json_str)
+                if manual_data:
+                    table = format_dict_list_as_table(manual_data)
                     formatted_text = formatted_text.replace(json_str, table)
-                    
-            except json.JSONDecodeError:
                 continue
                 
         return formatted_text
@@ -92,6 +107,61 @@ def format_json_as_table(text: str) -> str:
     except Exception as e:
         logger.error(f"Erro ao formatar tabela: {str(e)}")
         return text
+
+def clean_json_text(text: str) -> str:
+    """
+    Limpa e corrige problemas comuns em JSON malformado.
+    """
+    import re
+    
+    # Remover caracteres estranhos antes e depois do JSON
+    text = re.sub(r'^[^{[]*', '', text)
+    text = re.sub(r'[^}\]]*$', '', text)
+    
+    # Corrigir vírgulas extras
+    text = re.sub(r',\s*}', '}', text)
+    text = re.sub(r',\s*]', ']', text)
+    
+    # Corrigir aspas
+    text = re.sub(r'([{,]\s*)(\w+):', r'\1"\2":', text)
+    
+    return text
+
+def extract_data_manually(text: str) -> List[Dict]:
+    """
+    Extrai dados de tabela manualmente quando o JSON está malformado.
+    """
+    try:
+        import re
+        
+        # Procurar por padrões como "key": "value"
+        pattern = r'"([^"]+)":\s*"([^"]*)"'
+        matches = re.findall(pattern, text)
+        
+        if not matches:
+            return []
+            
+        # Agrupar matches em objetos
+        objects = []
+        current_obj = {}
+        
+        for key, value in matches:
+            current_obj[key] = value
+            
+            # Se encontramos um conjunto completo de propriedades, criar novo objeto
+            if len(current_obj) >= 5:  # Assumindo pelo menos 5 propriedades por objeto
+                objects.append(current_obj.copy())
+                current_obj = {}
+        
+        # Adicionar último objeto se não estiver vazio
+        if current_obj:
+            objects.append(current_obj)
+            
+        return objects
+        
+    except Exception as e:
+        logger.error(f"Erro na extração manual: {str(e)}")
+        return []
 
 def format_dict_list_as_table(data: List[Dict]) -> str:
     """
@@ -105,24 +175,28 @@ def format_dict_list_as_table(data: List[Dict]) -> str:
     for item in data:
         all_keys.update(item.keys())
     
-    headers = list(all_keys)
+    headers = sorted(list(all_keys))  # Ordenar para consistência
     
     # Criar tabela HTML
-    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+    table = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">\n'
     
     # Criar cabeçalho
     table += '  <thead>\n    <tr>\n'
     for header in headers:
-        table += f'      <th style="padding: 8px; background-color: #f2f2f2;">{header}</th>\n'
+        table += f'      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">{header}</th>\n'
     table += '    </tr>\n  </thead>\n'
     
     # Criar corpo da tabela
     table += '  <tbody>\n'
-    for item in data:
-        table += '    <tr>\n'
+    for i, item in enumerate(data):
+        bg_color = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+        table += f'    <tr style="background-color: {bg_color};">\n'
         for key in headers:
             value = str(item.get(key, ""))
-            table += f'      <td style="padding: 8px;">{value}</td>\n'
+            # Se o valor contém URL, criar link
+            if value.startswith("http"):
+                value = f'<a href="{value}" target="_blank">{value}</a>'
+            table += f'      <td style="padding: 12px; border: 1px solid #ddd;">{value}</td>\n'
         table += '    </tr>\n'
     table += '  </tbody>\n'
     table += '</table>'
@@ -337,3 +411,83 @@ async def submit_feedback(user_id: str, message_id: str, rating: int, feedback: 
 def is_table_request(message: str) -> bool:
     palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]
     return any(p in message.lower() for p in palavras_chave)
+
+async def test_chatbot():
+    """
+    Função para testar o chatbot via prompt de comando.
+    """
+    print("=== Testador do Chatbot Y-med ===")
+    print("Comandos disponíveis:")
+    print("- Digite uma mensagem para conversar")
+    print("- Digite 'historico' para ver o histórico")
+    print("- Digite 'limpar' para limpar o histórico")
+    print("- Digite 'sair' para encerrar")
+    print("=" * 40)
+    
+    user_id = "test_user"
+    
+    while True:
+        try:
+            user_input = input("\nVocê: ").strip()
+            
+            if not user_input:
+                continue
+                
+            if user_input.lower() == 'sair':
+                print("Encerrando o teste...")
+                break
+                
+            elif user_input.lower() == 'historico':
+                history = await get_conversation_history(user_id)
+                print("\n=== Histórico de Conversas ===")
+                if not history["messages"]:
+                    print("Nenhuma conversa encontrada.")
+                else:
+                    for i, msg in enumerate(history["messages"], 1):
+                        print(f"\n{i}. Você: {msg['message']}")
+                        print(f"   Bot: {msg['response']}")
+                        print(f"   Horário: {msg['timestamp']}")
+                        if msg.get('feedback_rating'):
+                            print(f"   Avaliação: {msg['feedback_rating']}/5")
+                continue
+                
+            elif user_input.lower() == 'limpar':
+                await clear_conversation_history(user_id)
+                print("Histórico limpo com sucesso!")
+                continue
+            
+            # Processar mensagem normal
+            print("Bot está pensando...")
+            response = await process_chatbot_message(user_input, user_id)
+            
+            print(f"\nBot: {response['response']}")
+            
+            # Opção de feedback
+            feedback_input = input("\nDeseja avaliar esta resposta? (s/n): ").strip().lower()
+            if feedback_input == 's':
+                try:
+                    rating = int(input("Avaliação de 1 a 5: "))
+                    if 1 <= rating <= 5:
+                        feedback_text = input("Comentário (opcional): ").strip()
+                        await submit_feedback(user_id, response['message_id'], rating, feedback_text or None)
+                        print("Feedback enviado com sucesso!")
+                    else:
+                        print("Avaliação deve ser entre 1 e 5.")
+                except ValueError:
+                    print("Avaliação inválida.")
+            
+        except KeyboardInterrupt:
+            print("\n\nEncerrando o teste...")
+            break
+        except Exception as e:
+            print(f"Erro: {str(e)}")
+            print("Tente novamente.")
+
+if __name__ == "__main__":
+    print("Iniciando teste do chatbot...")
+    try:
+        asyncio.run(test_chatbot())
+    except KeyboardInterrupt:
+        print("\nTeste interrompido pelo usuário.")
+    except Exception as e:
+        print(f"Erro ao iniciar teste: {str(e)}")
