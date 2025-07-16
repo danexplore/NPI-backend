@@ -2,6 +2,7 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 import traceback
+import asyncio
 from openai import OpenAI
 import requests
 import logging
@@ -13,7 +14,6 @@ import json
 import uuid
 from upstash_redis import Redis
 from fastapi import HTTPException
-import asyncio
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +28,7 @@ if not api_key:
     raise ValueError("OPENAI_API_KEY não configurada")
 
 client = OpenAI(api_key=api_key)
+ASSISTANT_ID = "asst_5YTQYHjXL7npoJYTLX3w0cXv"
 
 # Inicializar Redis
 redis = Redis.from_env()
@@ -50,10 +51,6 @@ class ConversationMessage(BaseModel):
     timestamp: datetime
     feedback_rating: Optional[int] = None
     feedback_text: Optional[str] = None
-
-def is_table_request(message: str) -> bool:
-    palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]
-    return any(p in message.lower() for p in palavras_chave)
 
 def format_json_as_table(text: str) -> str:
     """
@@ -210,21 +207,20 @@ def format_dict_as_table(data: Dict) -> str:
     """
     Converte um dicionário em uma tabela HTML de propriedades.
     """
-    table = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">\n'
+    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
     
     # Criar cabeçalho
     table += '  <thead>\n    <tr>\n'
-    table += '      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">Propriedade</th>\n'
-    table += '      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">Valor</th>\n'
+    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Propriedade</th>\n'
+    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Valor</th>\n'
     table += '    </tr>\n  </thead>\n'
     
     # Criar corpo da tabela
     table += '  <tbody>\n'
-    for i, (key, value) in enumerate(data.items()):
-        bg_color = "#f9f9f9" if i % 2 == 0 else "#ffffff"
-        table += f'    <tr style="background-color: {bg_color};">\n'
-        table += f'      <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">{key}</td>\n'
-        table += f'      <td style="padding: 12px; border: 1px solid #ddd;">{value}</td>\n'
+    for key, value in data.items():
+        table += '    <tr>\n'
+        table += f'      <td style="padding: 8px;">{key}</td>\n'
+        table += f'      <td style="padding: 8px;">{value}</td>\n'
         table += '    </tr>\n'
     table += '  </tbody>\n'
     table += '</table>'
@@ -232,117 +228,78 @@ def format_dict_as_table(data: Dict) -> str:
     return table
 
 async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
-    """
-    Processa uma mensagem do chatbot e retorna a resposta.
-    """
     try:
-        logger.info(f"Processando mensagem para user_id: {user_id}")
-        
-        # Verificar se a chave da API está configurada
-        if not api_key:
-            logger.error("OPENAI_API_KEY não configurada")
-            raise HTTPException(status_code=500, detail="Chave da API OpenAI não configurada")
-        
-        # Buscar histórico de conversas do usuário
-        conversation_history = await get_conversation_history(user_id)
-        
-        # Preparar contexto para o ChatGPT
-        system_prompt = """
-        Você é um assistente virtual especializado em cursos e educação da Unyleya. 
-        Você pode ajudar com informações sobre:
-        - Cursos disponíveis e suas propostas
-        - Processo de aprovação de cursos (Comitê e Pré-Comitê)
-        - Coordenadores, suas biografias, experiências e qualificações
-        - Status de propostas e observações
-        - Disciplinas e carga horária
-        - Concorrentes e análise de mercado
-        - Público-alvo e relevância dos cursos
-        - Informações gerais sobre a plataforma
-        - Dúvidas frequentes
+        logger.info(f"Processando mensagem via Assistants API para user_id: {user_id}")
 
-        Quando perguntado sobre coordenadores, sempre inclua informações detalhadas sobre:
-        - Nome e contato
-        - Formação acadêmica
-        - Experiência profissional
-        - Biografia e histórico
-        - Departamento e área de atuação
-        - Link do Lattes quando disponível
+        # 1. Criar um thread
+        thread_id = await get_or_create_thread_id(user_id)
 
-        Para análises de cursos, considere:
-        - Qualificação dos coordenadores
-        - Relevância da proposta
-        - Concorrência no mercado
-        - Estrutura curricular
-        - Público-alvo
-
-        Se o usuário perguntar sobre concorrentes leve em consideração os dados fornecidos por sites terceiros, sempre dando o link da fonte.
-        
-        Se o usuário pedir uma tabela, comparação, ou uma lista formatada, você deve responder usando o seguinte formato JSON:
-
-        {
-        "tabela": [
-            {
-            "coluna1": "valor",
-            "coluna2": "valor",
-            ...
-            }
-        ]
-        }
-
-        Não inclua explicações junto com o JSON. Retorne apenas o JSON puro.
-
-        Se o usuário fizer qualquer outra pergunta, responda normalmente em texto, com explicações, análises ou conclusões.
-
-        Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
-        Sempre que possível, forneça análises fundamentadas com base nas informações disponíveis.
-        """
-        
-        # Construir mensagens para o ChatGPT
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        # Adicionar histórico recente (últimas 10 mensagens)
-        recent_history = conversation_history.get("messages", [])[-10:]
-        for msg in recent_history:
-            messages.append({"role": "user", "content": msg["message"]})
-            messages.append({"role": "assistant", "content": msg["response"]})
-        
-        # Adicionar mensagem atual
-        messages.append({"role": "user", "content": message})
-        
-        logger.info(f"Fazendo chamada para OpenAI com {len(messages)} mensagens")
-        
-        # Fazer chamada para OpenAI usando a nova API
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7
+        # 2. Adicionar a mensagem do usuário
+        client.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=message
         )
-        
-        bot_response = response.choices[0].message.content
-        logger.info(f"Resposta recebida da OpenAI: {len(bot_response)} caracteres")
+
+        # 3. Executar o assistente
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=ASSISTANT_ID
+        )
+
+        # 4. Aguardar conclusão
+        while True:
+            run_status = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            if run_status.status == "completed":
+                break
+            elif run_status.status in ["failed", "cancelled"]:
+                raise Exception(f"Assistants API falhou com status: {run_status.status}")
+            await asyncio.sleep(2)
+
+        # 5. Recuperar a resposta
+        messages = client.beta.threads.messages.list(thread_id=thread_id)
+        assistant_messages = [m for m in messages.data if m.role == "assistant"]
+        if not assistant_messages:
+            raise Exception("Nenhuma resposta recebida do assistente")
+
+        bot_response = assistant_messages[0].content[0].text.value
         
         # Verificar se é uma solicitação de tabela e formatar se necessário
         if is_table_request(message):
             bot_response = format_json_as_table(bot_response)
         
-        # Salvar conversa no histórico
         message_id = str(uuid.uuid4())
+
+        # 6. Salvar no histórico
         await save_message_to_history(user_id, message_id, message, bot_response)
-        
+
         return {
             "success": True,
             "message_id": message_id,
             "response": bot_response,
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except openai.OpenAIError as e:
-        logger.error(f"Erro da OpenAI: {str(e)}")
+        logger.error(f"Erro da OpenAI (Assistants API): {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro da OpenAI: {str(e)}")
     except Exception as e:
-        logger.error(f"Erro geral ao processar mensagem: {str(e)}")
+        logger.error(f"Erro geral: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
+
+async def get_or_create_thread_id(user_id: str) -> str:
+    cache_key = f"chatbot_thread_{user_id}"
+    existing = redis.get(cache_key)
+    if existing:
+        # Verificar se já é string ou se precisa decodificar
+        if isinstance(existing, bytes):
+            return existing.decode("utf-8")
+        return existing
+
+    # Criar um novo thread
+    thread = client.beta.threads.create()
+    redis.set(cache_key, thread.id)
+    return thread.id
 
 async def get_conversation_history(user_id: str) -> Dict[str, Any]:
     """
@@ -450,3 +407,87 @@ async def submit_feedback(user_id: str, message_id: str, rating: int, feedback: 
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao enviar feedback: {str(e)}")
+
+def is_table_request(message: str) -> bool:
+    palavras_chave = ["tabela", "coloque em tabela", "comparação", "listar", "formato de tabela", "colunas"]
+    return any(p in message.lower() for p in palavras_chave)
+
+async def test_chatbot():
+    """
+    Função para testar o chatbot via prompt de comando.
+    """
+    print("=== Testador do Chatbot Y-med ===")
+    print("Comandos disponíveis:")
+    print("- Digite uma mensagem para conversar")
+    print("- Digite 'historico' para ver o histórico")
+    print("- Digite 'limpar' para limpar o histórico")
+    print("- Digite 'sair' para encerrar")
+    print("=" * 40)
+    
+    user_id = "test_user"
+    
+    while True:
+        try:
+            user_input = input("\nVocê: ").strip()
+            
+            if not user_input:
+                continue
+                
+            if user_input.lower() == 'sair':
+                print("Encerrando o teste...")
+                break
+                
+            elif user_input.lower() == 'historico':
+                history = await get_conversation_history(user_id)
+                print("\n=== Histórico de Conversas ===")
+                if not history["messages"]:
+                    print("Nenhuma conversa encontrada.")
+                else:
+                    for i, msg in enumerate(history["messages"], 1):
+                        print(f"\n{i}. Você: {msg['message']}")
+                        print(f"   Bot: {msg['response']}")
+                        print(f"   Horário: {msg['timestamp']}")
+                        if msg.get('feedback_rating'):
+                            print(f"   Avaliação: {msg['feedback_rating']}/5")
+                continue
+                
+            elif user_input.lower() == 'limpar':
+                await clear_conversation_history(user_id)
+                print("Histórico limpo com sucesso!")
+                continue
+            
+            # Processar mensagem normal
+            print("Bot está pensando...")
+            response = await process_chatbot_message(user_input, user_id)
+            
+            print(f"\nBot: {response['response']}")
+            
+            # Opção de feedback
+            feedback_input = input("\nDeseja avaliar esta resposta? (s/n): ").strip().lower()
+            if feedback_input == 's':
+                try:
+                    rating = int(input("Avaliação de 1 a 5: "))
+                    if 1 <= rating <= 5:
+                        feedback_text = input("Comentário (opcional): ").strip()
+                        await submit_feedback(user_id, response['message_id'], rating, feedback_text or None)
+                        print("Feedback enviado com sucesso!")
+                    else:
+                        print("Avaliação deve ser entre 1 e 5.")
+                except ValueError:
+                    print("Avaliação inválida.")
+            
+        except KeyboardInterrupt:
+            print("\n\nEncerrando o teste...")
+            break
+        except Exception as e:
+            print(f"Erro: {str(e)}")
+            print("Tente novamente.")
+
+if __name__ == "__main__":
+    print("Iniciando teste do chatbot...")
+    try:
+        asyncio.run(test_chatbot())
+    except KeyboardInterrupt:
+        print("\nTeste interrompido pelo usuário.")
+    except Exception as e:
+        print(f"Erro ao iniciar teste: {str(e)}")
