@@ -60,12 +60,19 @@ def format_json_as_table(text: str) -> str:
     Converte texto JSON em uma tabela formatada.
     """
     try:
-        # Tentar extrair JSON do texto
         import re
         
-        # Procurar por blocos JSON no texto
-        json_pattern = r'\{.*?\}|\[.*?\]'
-        json_matches = re.findall(json_pattern, text, re.DOTALL)
+        # Primeiro, tentar limpar e corrigir o JSON
+        cleaned_text = clean_json_text(text)
+        
+        # Procurar por estruturas JSON válidas
+        json_pattern = r'\{[^{}]*"tabela"[^{}]*:\s*\[[^\]]*\]\s*\}'
+        json_matches = re.findall(json_pattern, cleaned_text, re.DOTALL)
+        
+        if not json_matches:
+            # Fallback: procurar por arrays JSON simples
+            json_pattern = r'\[[^\[\]]*\{[^{}]*\}[^\[\]]*\]'
+            json_matches = re.findall(json_pattern, cleaned_text, re.DOTALL)
         
         if not json_matches:
             return text
@@ -77,17 +84,25 @@ def format_json_as_table(text: str) -> str:
                 # Tentar fazer parse do JSON
                 data = json.loads(json_str)
                 
-                # Se é uma lista de objetos, criar tabela
-                if isinstance(data, list) and data and isinstance(data[0], dict):
+                # Se tem propriedade "tabela", usar essa
+                if isinstance(data, dict) and "tabela" in data:
+                    table_data = data["tabela"]
+                    if isinstance(table_data, list) and table_data:
+                        table = format_dict_list_as_table(table_data)
+                        formatted_text = formatted_text.replace(json_str, table)
+                        
+                # Se é uma lista de objetos diretamente
+                elif isinstance(data, list) and data and isinstance(data[0], dict):
                     table = format_dict_list_as_table(data)
                     formatted_text = formatted_text.replace(json_str, table)
                     
-                # Se é um objeto simples, criar tabela de propriedades
-                elif isinstance(data, dict):
-                    table = format_dict_as_table(data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Erro ao fazer parse do JSON: {str(e)}")
+                # Tentar extrair dados manualmente
+                manual_data = extract_data_manually(json_str)
+                if manual_data:
+                    table = format_dict_list_as_table(manual_data)
                     formatted_text = formatted_text.replace(json_str, table)
-                    
-            except json.JSONDecodeError:
                 continue
                 
         return formatted_text
@@ -95,6 +110,61 @@ def format_json_as_table(text: str) -> str:
     except Exception as e:
         logger.error(f"Erro ao formatar tabela: {str(e)}")
         return text
+
+def clean_json_text(text: str) -> str:
+    """
+    Limpa e corrige problemas comuns em JSON malformado.
+    """
+    import re
+    
+    # Remover caracteres estranhos antes e depois do JSON
+    text = re.sub(r'^[^{[]*', '', text)
+    text = re.sub(r'[^}\]]*$', '', text)
+    
+    # Corrigir vírgulas extras
+    text = re.sub(r',\s*}', '}', text)
+    text = re.sub(r',\s*]', ']', text)
+    
+    # Corrigir aspas
+    text = re.sub(r'([{,]\s*)(\w+):', r'\1"\2":', text)
+    
+    return text
+
+def extract_data_manually(text: str) -> List[Dict]:
+    """
+    Extrai dados de tabela manualmente quando o JSON está malformado.
+    """
+    try:
+        import re
+        
+        # Procurar por padrões como "key": "value"
+        pattern = r'"([^"]+)":\s*"([^"]*)"'
+        matches = re.findall(pattern, text)
+        
+        if not matches:
+            return []
+            
+        # Agrupar matches em objetos
+        objects = []
+        current_obj = {}
+        
+        for key, value in matches:
+            current_obj[key] = value
+            
+            # Se encontramos um conjunto completo de propriedades, criar novo objeto
+            if len(current_obj) >= 5:  # Assumindo pelo menos 5 propriedades por objeto
+                objects.append(current_obj.copy())
+                current_obj = {}
+        
+        # Adicionar último objeto se não estiver vazio
+        if current_obj:
+            objects.append(current_obj)
+            
+        return objects
+        
+    except Exception as e:
+        logger.error(f"Erro na extração manual: {str(e)}")
+        return []
 
 def format_dict_list_as_table(data: List[Dict]) -> str:
     """
@@ -108,24 +178,28 @@ def format_dict_list_as_table(data: List[Dict]) -> str:
     for item in data:
         all_keys.update(item.keys())
     
-    headers = list(all_keys)
+    headers = sorted(list(all_keys))  # Ordenar para consistência
     
     # Criar tabela HTML
-    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+    table = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">\n'
     
     # Criar cabeçalho
     table += '  <thead>\n    <tr>\n'
     for header in headers:
-        table += f'      <th style="padding: 8px; background-color: #f2f2f2;">{header}</th>\n'
+        table += f'      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">{header}</th>\n'
     table += '    </tr>\n  </thead>\n'
     
     # Criar corpo da tabela
     table += '  <tbody>\n'
-    for item in data:
-        table += '    <tr>\n'
+    for i, item in enumerate(data):
+        bg_color = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+        table += f'    <tr style="background-color: {bg_color};">\n'
         for key in headers:
             value = str(item.get(key, ""))
-            table += f'      <td style="padding: 8px;">{value}</td>\n'
+            # Se o valor contém URL, criar link
+            if value.startswith("http"):
+                value = f'<a href="{value}" target="_blank">{value}</a>'
+            table += f'      <td style="padding: 12px; border: 1px solid #ddd;">{value}</td>\n'
         table += '    </tr>\n'
     table += '  </tbody>\n'
     table += '</table>'
@@ -136,20 +210,21 @@ def format_dict_as_table(data: Dict) -> str:
     """
     Converte um dicionário em uma tabela HTML de propriedades.
     """
-    table = '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+    table = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">\n'
     
     # Criar cabeçalho
     table += '  <thead>\n    <tr>\n'
-    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Propriedade</th>\n'
-    table += '      <th style="padding: 8px; background-color: #f2f2f2;">Valor</th>\n'
+    table += '      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">Propriedade</th>\n'
+    table += '      <th style="padding: 12px; background-color: #f2f2f2; text-align: left; font-weight: bold;">Valor</th>\n'
     table += '    </tr>\n  </thead>\n'
     
     # Criar corpo da tabela
     table += '  <tbody>\n'
-    for key, value in data.items():
-        table += '    <tr>\n'
-        table += f'      <td style="padding: 8px;">{key}</td>\n'
-        table += f'      <td style="padding: 8px;">{value}</td>\n'
+    for i, (key, value) in enumerate(data.items()):
+        bg_color = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+        table += f'    <tr style="background-color: {bg_color};">\n'
+        table += f'      <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">{key}</td>\n'
+        table += f'      <td style="padding: 12px; border: 1px solid #ddd;">{value}</td>\n'
         table += '    </tr>\n'
     table += '  </tbody>\n'
     table += '</table>'
@@ -175,14 +250,33 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         system_prompt = """
         Você é um assistente virtual especializado em cursos e educação da Unyleya. 
         Você pode ajudar com informações sobre:
-        - Cursos disponíveis
-        - Processo de aprovação de cursos
-        - Coordenadores e responsáveis
-        - Status de propostas
+        - Cursos disponíveis e suas propostas
+        - Processo de aprovação de cursos (Comitê e Pré-Comitê)
+        - Coordenadores, suas biografias, experiências e qualificações
+        - Status de propostas e observações
+        - Disciplinas e carga horária
+        - Concorrentes e análise de mercado
+        - Público-alvo e relevância dos cursos
         - Informações gerais sobre a plataforma
         - Dúvidas frequentes
-        - Respostas a perguntas comuns dos usuários
+
+        Quando perguntado sobre coordenadores, sempre inclua informações detalhadas sobre:
+        - Nome e contato
+        - Formação acadêmica
+        - Experiência profissional
+        - Biografia e histórico
+        - Departamento e área de atuação
+        - Link do Lattes quando disponível
+
+        Para análises de cursos, considere:
+        - Qualificação dos coordenadores
+        - Relevância da proposta
+        - Concorrência no mercado
+        - Estrutura curricular
+        - Público-alvo
+
         Se o usuário perguntar sobre concorrentes leve em consideração os dados fornecidos por sites terceiros, sempre dando o link da fonte.
+        
         Se o usuário pedir uma tabela, comparação, ou uma lista formatada, você deve responder usando o seguinte formato JSON:
 
         {
@@ -198,12 +292,9 @@ async def process_chatbot_message(message: str, user_id: str) -> Dict[str, Any]:
         Não inclua explicações junto com o JSON. Retorne apenas o JSON puro.
 
         Se o usuário fizer qualquer outra pergunta, responda normalmente em texto, com explicações, análises ou conclusões.
-        Se o usuário fizer uma pergunta fora do seu escopo, responda de forma educada e sugira que ele entre em contato com o suporte ou consulte a documentação.
-        Mantenha um tom profissional e amigável.
-        Sempre forneça informações úteis e relevantes. Se você não souber a resposta, seja honesto e sugira que o usuário consulte outras fontes ou entre em contato com o suporte.
+
         Responda de forma útil, profissional e concisa. Se você não tiver informações específicas sobre algo, seja honesto sobre isso.
-        
-        Quando solicitado para criar tabelas ou comparações, forneça dados estruturados em formato JSON que possam ser convertidos em tabelas.
+        Sempre que possível, forneça análises fundamentadas com base nas informações disponíveis.
         """
         
         # Construir mensagens para o ChatGPT
