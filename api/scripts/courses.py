@@ -150,8 +150,8 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                         course.disciplinasIA = []
                         disciplinas = value.split("\n")
 
-                        for disciplina in disciplinas:
-                            valores = disciplina.split(";")
+                    for disciplina in disciplinas:
+                        valores = disciplina.split(";")
                         if len(valores) >= 1:
                             nome = valores[0]
                             carga = valores[1] if len(valores) > 1 else "0"
@@ -173,7 +173,7 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                             "carga": int(carga),
                             "tipo": tipo
                         })
-                        course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
+                    course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
 
                     disciplinas_desenvolvimento = [
                         "Desenvolvimento Profissional".lower(),
@@ -186,76 +186,80 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                             "tipo": "Reuso"
                         })
                         course.cargaHoraria += 40
-            elif field["name"] == "Status Pré-Comitê":
-                course.statusPreComite = value
-            elif field["name"] == "Status Pós-Comitê":
-                course.status = value
-            elif field["name"] == "Observações do Pré-Comitê":
-                course.observacoesPreComite = value
-            elif field["name"] == "Observações do Comitê":
-                course.observacoesComite = value
-            return course
+                elif field["name"] == "Status Pré-Comitê":
+                    course.statusPreComite = value
+                elif field["name"] == "Status Pós-Comitê":
+                    course.status = value
+                elif field["name"] == "Observações do Pré-Comitê":
+                    course.observacoesPreComite = value
+                elif field["name"] == "Observações do Comitê":
+                    course.observacoesComite = value
+                return course
 
-        # Use reduce to process all fields
-        course = reduce(process_field, fields, course)
+            # Use reduce to process all fields
+            course = reduce(process_field, fields, course)
 
-        # Debug: Mostrar todos os nomes de campos disponíveis se estiver na fase pré-comitê
-        if phase_name == "precomite" and len(fields) > 0:
-            field_names = [f.get("name", "SEM_NOME") for f in fields]
+            # Debug: Mostrar todos os nomes de campos disponíveis se estiver na fase pré-comitê
+            if phase_name == "precomite" and len(fields) > 0:
+                field_names = [f.get("name", "SEM_NOME") for f in fields]
 
-        # Se o slug não foi definido pelos campos, gerar um baseado no nome do curso
-        if not course.slug or course.slug.strip() == "":
-            if course.nome:
-                course.slug = generate_slug_from_name(course.nome)
-            else:
+            # Se o slug não foi definido pelos campos, gerar um baseado no nome do curso
+            if not course.slug or course.slug.strip() == "":
+                if course.nome:
+                    course.slug = generate_slug_from_name(course.nome)
+                else:
+                    return None
+
+            coordenador_nomes = [
+                field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
+                for field in fields
+                if field["name"].strip().startswith("Coordenador") and field.get("native_value")
+            ]
+
+            coordenadores_info = {}
+            for relation in child_relations:
+                if relation.get("cards"):
+                    coord_card = relation["cards"][0]
+                    coord_fields = coord_card["fields"]
+
+                    nome_field = next((f for f in coord_fields if f.get("name", "").lower() == "nome completo"), None)
+                    if not nome_field or not nome_field.get("value"):
+                        continue
+
+                    nome = nome_field["value"].strip()
+                    minibiografia = next((f["value"] for f in coord_fields if f.get("name") == "Minibiografia"), "")
+                    ja_e_coordenador = next((f["value"] == "Sim" for f in coord_fields if f.get("name") == "Já é coordenador da Unyleya?"), False)
+
+                    coordenadores_info[nome] = {
+                        "minibiografia": minibiografia,
+                        "jaECoordenador": ja_e_coordenador
+                    }
+
+            def build_coordenador(nome):
+                if nome in coordenadores_info:
+                    return {
+                        "nome": nome,
+                        "minibiografia": coordenadores_info[nome]["minibiografia"],
+                        "jaECoordenador": coordenadores_info[nome]["jaECoordenador"]
+                    }
+                else:
+                    return {
+                        "nome": nome,
+                        "minibiografia": "",
+                        "jaECoordenador": False
+                    }
+
+            course.coordenadores = list(map(build_coordenador, coordenador_nomes))
+
+            # Verificar se o slug está vazio - isso pode causar problemas
+            if not course.slug or course.slug.strip() == "":
                 return None
 
-        coordenador_nomes = [
-            field["native_value"].strip() if "[" not in field["native_value"] else field["native_value"].split("[")[0].strip()
-            for field in fields
-            if field["name"].strip().startswith("Coordenador") and field.get("native_value")
-        ]
+            return (course.slug, course)
 
-        coordenadores_info = {}
-        for relation in child_relations:
-            if relation.get("cards"):
-                coord_card = relation["cards"][0]
-                coord_fields = coord_card["fields"]
-
-                nome_field = next((f for f in coord_fields if f.get("name", "").lower() == "nome completo"), None)
-                if not nome_field or not nome_field.get("value"):
-                    continue
-
-                nome = nome_field["value"].strip()
-                minibiografia = next((f["value"] for f in coord_fields if f.get("name") == "Minibiografia"), "")
-                ja_e_coordenador = next((f["value"] == "Sim" for f in coord_fields if f.get("name") == "Já é coordenador da Unyleya?"), False)
-
-                coordenadores_info[nome] = {
-                    "minibiografia": minibiografia,
-                    "jaECoordenador": ja_e_coordenador
-                }
-
-        def build_coordenador(nome):
-            if nome in coordenadores_info:
-                return {
-                    "nome": nome,
-                    "minibiografia": coordenadores_info[nome]["minibiografia"],
-                    "jaECoordenador": coordenadores_info[nome]["jaECoordenador"]
-                }
-            else:
-                return {
-                    "nome": nome,
-                    "minibiografia": "",
-                    "jaECoordenador": False
-                }
-
-        course.coordenadores = list(map(build_coordenador, coordenador_nomes))
-
-        # Verificar se o slug está vazio - isso pode causar problemas
-        if not course.slug or course.slug.strip() == "":
+        except Exception as error:
+            logger.error(f"Erro ao processar edge: {error}")
             return None
-
-        return (course.slug, course)
 
     # Use filter and dict to build the courses dictionary
     courses = dict(filter(lambda x: x is not None, map(process_edge, edges)))
