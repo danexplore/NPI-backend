@@ -226,58 +226,122 @@ async def update_course_status_after_comite(payload: CourseUpdate, credentials: 
     redis.json.delete("home_data")
     await home_data()
     return message
+
+@app.get("/diagnostic/pipefy")
+async def diagnose_pipefy_connection(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Endpoint de diagnóstico para verificar conexão com Pipefy"""
+    import httpx
+    try:
+        api_url = "https://api.pipefy.com/graphql"
+        pipefy_key = os.getenv("PIPEFY_API_KEY")
+        
+        if not pipefy_key:
+            return {
+                "status": "error",
+                "message": "PIPEFY_API_KEY não configurada"
+            }
+        
+        # Fazer uma query simples para testar
+        test_query = '{ organization(id: "0") { name } }'
+        headers = {
+            "Authorization": f"Bearer {pipefy_key}",
+            "Content-Type": "application/json",
+        }
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                api_url,
+                headers=headers,
+                json={"query": test_query}
+            )
+            
+            return {
+                "status": "ok" if response.is_success else "error",
+                "http_status": response.status_code,
+                "response": response.text[:500] if response.text else "No response"
+            }
+    except Exception as e:
+        logger.error(f"Erro ao diagnosticar Pipefy: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
     
 @app.get("/courses")
 async def get_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    cache_key = "courses_data"
-    field_order = [
-        "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
-        "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
-    ]
-    cached = redis.json.get(cache_key)
-    if cached:
-        raw = cached[0]
-        return sort_and_reorder_dict(raw, field_order)
-    raw = jsonable_encoder(await get_courses_unyleya())
-    ordered = sort_and_reorder_dict(raw, field_order)
-    redis.json.set(cache_key, path="$", value=ordered, nx=True)
-    return ordered
+    try:
+        cache_key = "courses_data"
+        field_order = [
+            "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
+            "apresentacao", "publico", "concorrentesIA", "performance",
+            "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        ]
+        logger.info("Buscando dados de cursos Unyleya")
+        cached = redis.json.get(cache_key)
+        if cached:
+            logger.info("Retornando cursos do cache")
+            raw = cached[0]
+            return sort_and_reorder_dict(raw, field_order)
+        logger.info("Buscando cursos da API Pipefy")
+        raw = jsonable_encoder(await get_courses_unyleya())
+        logger.info(f"Encontrados {len(raw)} cursos")
+        ordered = sort_and_reorder_dict(raw, field_order)
+        redis.json.set(cache_key, path="$", value=ordered, nx=True)
+        return ordered
+    except Exception as e:
+        logger.error(f"Erro ao buscar cursos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar cursos: {str(e)}")
 
 @app.get("/pre-comite-courses")
 async def get_pre_comite_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    cache_key = "pre_comite_courses_data"
-    field_order = [
-        "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
-        "apresentacao", "publico", "concorrentesIA", "performance",
-        "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
-    ]
-    cached = redis.json.get(cache_key)
-    if cached:
-        raw = cached[0]
-        return sort_and_reorder_dict(raw, field_order)
-    raw = jsonable_encoder(await get_courses_pre_comite())
-    ordered = sort_and_reorder_dict(raw, field_order)
-    redis.json.set(cache_key, path="$", value=ordered, nx=True)
-    return ordered
+    try:
+        cache_key = "pre_comite_courses_data"
+        field_order = [
+            "id", "fase", "entity", "slug", "nome", "coordenadorSolicitante", "coordenadores",
+            "apresentacao", "publico", "concorrentesIA", "performance",
+            "videoUrl", "disciplinasIA", "status", "observacoesComite", "cargaHoraria"
+        ]
+        logger.info("Buscando dados de cursos pré-comitê")
+        cached = redis.json.get(cache_key)
+        if cached:
+            logger.info("Retornando cursos pré-comitê do cache")
+            raw = cached[0]
+            return sort_and_reorder_dict(raw, field_order)
+        logger.info("Buscando cursos pré-comitê da API Pipefy")
+        raw = jsonable_encoder(await get_courses_pre_comite())
+        logger.info(f"Encontrados {len(raw)} cursos pré-comitê")
+        ordered = sort_and_reorder_dict(raw, field_order)
+        redis.json.set(cache_key, path="$", value=ordered, nx=True)
+        return ordered
+    except Exception as e:
+        logger.error(f"Erro ao buscar cursos pré-comitê: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar cursos pré-comitê: {str(e)}")
 
 @app.get("/courses-ymed")
 async def get_ymed_courses_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
-    cache_key = "ymed_courses_data"
-    field_order = [
-        "id", "entity", "slug", "nomeDoCurso", "coordenador", "justificativaIntroducao",
-        "lacunaFormacaoGap", "propostaCurso", "publicoAlvo", "conteudoProgramatico",
-        "mercado", "diferencialCurso", "observacoesGerais", "status", "observacoesComite",
-        "performance", "concorrentes"
-    ]
-    cached = redis.json.get(cache_key)
-    if cached:
-        raw = cached[0]
-        return sort_and_reorder_dict(raw, field_order)
-    raw = jsonable_encoder(await get_courses_ymed())
-    ordered = sort_and_reorder_dict(raw, field_order)
-    redis.json.set(cache_key, path="$", value=ordered, nx=True)
-    return ordered
+    try:
+        cache_key = "ymed_courses_data"
+        field_order = [
+            "id", "entity", "slug", "nomeDoCurso", "coordenador", "justificativaIntroducao",
+            "lacunaFormacaoGap", "propostaCurso", "publicoAlvo", "conteudoProgramatico",
+            "mercado", "diferencialCurso", "observacoesGerais", "status", "observacoesComite",
+            "performance", "concorrentes"
+        ]
+        logger.info("Buscando dados de cursos YMED")
+        cached = redis.json.get(cache_key)
+        if cached:
+            logger.info("Retornando cursos YMED do cache")
+            raw = cached[0]
+            return sort_and_reorder_dict(raw, field_order)
+        logger.info("Buscando cursos YMED da API Pipefy")
+        raw = jsonable_encoder(await get_courses_ymed())
+        logger.info(f"Encontrados {len(raw)} cursos YMED")
+        ordered = sort_and_reorder_dict(raw, field_order)
+        redis.json.set(cache_key, path="$", value=ordered, nx=True)
+        return ordered
+    except Exception as e:
+        logger.error(f"Erro ao buscar cursos YMED: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar cursos YMED: {str(e)}")
 
 @app.get("/home-data")
 async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):

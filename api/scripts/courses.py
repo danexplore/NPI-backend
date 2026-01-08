@@ -8,6 +8,10 @@ from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
 import warnings
 from dotenv import load_dotenv
 from functools import reduce
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
@@ -384,8 +388,10 @@ async def get_courses_pre_comite():
         return courses_result
     
     except Exception as error:
-        print(f"Erro ao buscar dados do Pipefy: {error}")
-        raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
+        error_msg = f"Erro ao buscar cursos pré-comitê: {str(error)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=f"Falha ao buscar cursos pré-comitê: {str(error)}")
 
 async def get_courses_unyleya():
     QUERY = """
@@ -468,8 +474,10 @@ async def get_courses_unyleya():
         return courses_result
 
     except Exception as error:
-        print(f"Erro ao buscar dados do Pipefy: {error}")
-        raise HTTPException(status_code=500, detail="Falha ao buscar cursos")
+        error_msg = f"Erro ao buscar cursos Unyleya: {str(error)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=f"Falha ao buscar cursos: {str(error)}")
 
 async def get_courses_ymed():
     QUERY = """
@@ -508,8 +516,10 @@ async def get_courses_ymed():
         api_response = ApiResponse(data=nested_data)
         return parse_api_response_ymed(api_response)
     except Exception as error:
-        print(f"Erro ao buscar dados do Pipefy: {error}")
-        raise HTTPException(status_code=500, detail="Falha ao buscar cursos YMED")
+        error_msg = f"Erro ao buscar cursos YMED: {str(error)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=f"Falha ao buscar cursos YMED: {str(error)}")
 
 async def update_course_status(course_update: CourseUpdate):
     UPDATE_CARD_FIELD_MUTATION = """
