@@ -53,14 +53,15 @@ async def fetch_users_from_pipefy():
                         'first: 50', f'first: 50, after: "{cursor}"'
                     )
 
+                headers = await get_pipefy_headers()
                 response = await client.post(
                     API_URL,
-                    headers=HEADERS,
+                    headers=headers,
                     json={"query": paginated_query}
                 )
 
                 if not response.is_success:
-                    print(f"Erro na requisição ao Pipefy: {response.text}")
+                    logger.error(f"Erro na requisição ao Pipefy: {response.text}")
                     return {}
 
                 data = response.json().get("data", {}).get("table_records", {})
@@ -104,7 +105,7 @@ async def fetch_users_from_pipefy():
                 cursor = page_info.get("endCursor")
 
     except Exception as e:
-        print(f"Erro ao buscar usuários do Pipefy: {e}")
+        logger.error(f"Erro ao buscar usuários do Pipefy: {e}")
         return {}
 
     return all_users
@@ -159,7 +160,7 @@ async def login(email: str, password: str):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=e.detail)
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def verify_token(token: str):
     if not token:
@@ -198,9 +199,10 @@ async def create_password_hash(password: str, card_id: int):
     """ % (card_id, hashed_password)
     
     async with httpx.AsyncClient() as client:
+        headers = await get_pipefy_headers()
         response = await client.post(
             API_URL,
-            headers=HEADERS,
+            headers=headers,
             json={"query": query}
         )
         if response.status_code == 200:
@@ -221,7 +223,6 @@ async def create_password_hash(password: str, card_id: int):
 
 async def create_code_hash(code: str):
     hashed_code = hash_password(code)
-
     return hashed_code
 
 async def reset_password(user_id: str, new_password: str):
@@ -245,9 +246,10 @@ async def reset_password(user_id: str, new_password: str):
     """
 
     async with httpx.AsyncClient() as client:
+        headers = await get_pipefy_headers()
         response = await client.post(
             API_URL,
-            headers=HEADERS,
+            headers=headers,
             json={"query": query}
         )
         if response.status_code == 200:
@@ -359,9 +361,10 @@ async def reset_code(card_id: int, email: str):
     }}
     """
     async with httpx.AsyncClient() as client:
+        headers = await get_pipefy_headers()
         response = await client.post(
             API_URL,
-            headers=HEADERS,
+            headers=headers,
             json={"query": query}
         )
         if response.status_code == 200:
@@ -380,9 +383,10 @@ async def reset_code(card_id: int, email: str):
               }}
             }}
             """
+            headers_send = await get_pipefy_headers()
             response_send = await client.post(
                 API_URL,
-                headers=HEADERS,
+                headers=headers_send,
                 json={"query": query_send}
             )
             if response_send.status_code == 200:
@@ -409,7 +413,7 @@ async def verify_reset_code(submited_code: str, reset_code: str):
         raise HTTPException(status_code=400, detail="Os códigos não podem ser vazios")
     
     password_check = verify_password(submited_code, reset_code)['is_same']
-    print(password_check)
+    logger.debug(f"Password check: {password_check}")
     if not password_check:
         raise HTTPException(status_code=401, detail="O código de redefinição está incorreto")
 
