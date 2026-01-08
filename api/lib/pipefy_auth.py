@@ -22,7 +22,7 @@ PIPEFY_SERVICE_ACCOUNT_SECRET = os.getenv("PIPEFY_SERVICE_ACCOUNT_SECRET")
 PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
 
 # URLs
-PIPEFY_OAUTH_URL = "https://api.pipefy.com/oauth/token"
+PIPEFY_OAUTH_URL = "https://app.pipefy.com/oauth/token"
 PIPEFY_GRAPHQL_URL = "https://api.pipefy.com/graphql"
 
 # Cache de token
