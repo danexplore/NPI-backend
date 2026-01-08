@@ -7,20 +7,15 @@ import os
 import bcrypt
 import httpx
 from dotenv import load_dotenv
+from ..lib.pipefy_auth import get_pipefy_headers, PIPEFY_GRAPHQL_URL
+import logging
+
+logger = logging.getLogger(__name__)
 
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
 
-API_URL = "https://api.pipefy.com/graphql"
-PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
-
-if not PIPEFY_API_KEY:
-    raise ValueError("PIPEFY_API_KEY não está definida nas variáveis de ambiente")
-
-HEADERS = {
-    "Authorization": f"Bearer {PIPEFY_API_KEY}",
-    "Content-Type": "application/json",
-}
+API_URL = PIPEFY_GRAPHQL_URL
 
 async def fetch_users_from_pipefy():
     all_users: Dict[int, User] = {}
