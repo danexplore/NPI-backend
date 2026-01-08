@@ -54,100 +54,104 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
     courses: Dict[str, CourseUnyleya] = {}
 
     edges = api_response.data.get("phase", {}).get("cards", {}).get("edges", [])
+    logger.info(f"Começando parsing de {len(edges)} cursos para fase: {phase_name}")
 
     def process_edge(edge):
-        if not edge["node"]["id"] or not edge["node"]["fields"]:
-            return None
+        try:
+            if not edge.get("node", {}).get("id") or not edge.get("node", {}).get("fields"):
+                logger.warning("Edge sem id ou fields, pulando")
+                return None
 
-        fields = edge["node"]["fields"]
-        child_relations = edge["node"].get("child_relations", [])
+            fields = edge["node"]["fields"]
+            child_relations = edge["node"].get("child_relations", [])
 
-        course = CourseUnyleya(
-            id=edge["node"]["id"],
-            entity="Unyleya",
-            slug="",
-            nome="",
-            coordenadorSolicitante="Sem coordenador",
-            coordenadores=[],
-            apresentacao="",
-            publico="",
-            concorrentesIA=[],
-            performance="",
-            videoUrl="",
-            disciplinasIA=[],
-            status="",
-            observacoesComite="",
-            statusPreComite="",
-            observacoesPreComite="",
-            cargaHoraria=0,
-            fase=phase_name
-        )
+            course = CourseUnyleya(
+                id=edge["node"]["id"],
+                entity="Unyleya",
+                slug="",
+                nome="",
+                coordenadorSolicitante="Sem coordenador",
+                coordenadores=[],
+                apresentacao="",
+                publico="",
+                concorrentesIA=[],
+                performance="",
+                videoUrl="",
+                disciplinasIA=[],
+                status="",
+                observacoesComite="",
+                statusPreComite="",
+                observacoesPreComite="",
+                cargaHoraria=0,
+                fase=phase_name
+            )
 
-        def process_field(course, field):
-            if not field.get("name"):
-                raise ValueError("Campo sem nome encontrado na resposta da API")
+            def process_field(course, field):
+                if not field.get("name"):
+                    raise ValueError("Campo sem nome encontrado na resposta da API")
 
-            value = field.get("native_value", "").strip() or ""
+                value = field.get("native_value", "").strip() or ""
 
-            # Verificar diferentes nomes possíveis para o campo slug
-            if field["name"] in ["curso-slug", "Curso Slug", "Slug", "slug", "Slug do Curso"]:
-                course.slug = value.strip()
-            if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
-                if value:
-                    course.coordenadorSolicitante = value.strip() if "[" not in value else value.split("[")[0].strip()
+                # Verificar diferentes nomes possíveis para o campo slug
+                if field["name"] in ["curso-slug", "Curso Slug", "Slug", "slug", "Slug do Curso"]:
+                    course.slug = value.strip()
+                if field["name"] == "Selecione o cadastro" or field.get("field", {}).get("id") == "nome_completo":
+                    if value:
+                        course.coordenadorSolicitante = value.strip() if "[" not in value else value.split("[")[0].strip()
 
-            if field["name"] == "Nome do Curso":
-                if "[" in value:
-                    course.nome = value.split("[")[0].strip()
-                else:
-                    course.nome = value.strip()
-            elif field["name"] == "Apresentação IA":
-                course.apresentacao = value
-            elif field["name"] == "Público Alvo IA":
-                course.publico = value
-            elif field["name"] == "Concorrentes IA":
-                if value:
-                    try:
-                        formatted_value = value.strip()
-                        if not (formatted_value.startswith("[") and formatted_value.endswith("]")):
-                            raise ValueError("Formato JSON inválido para Concorrentes IA")
+                if field["name"] == "Nome do Curso":
+                    if "[" in value:
+                        course.nome = value.split("[")[0].strip()
+                    else:
+                        course.nome = value.strip()
+                elif field["name"] == "Apresentação IA":
+                    course.apresentacao = value
+                elif field["name"] == "Público Alvo IA":
+                    course.publico = value
+                elif field["name"] == "Concorrentes IA":
+                    if value:
+                        try:
+                            formatted_value = value.strip()
+                            if not (formatted_value.startswith("[") and formatted_value.endswith("]")):
+                                raise ValueError("Formato JSON inválido para Concorrentes IA")
 
-                        formatted_value = formatted_value.replace(",\n]", "]")
-                        parsed_value = json.loads(formatted_value)
+                            formatted_value = formatted_value.replace(",\n]", "]")
+                            parsed_value = json.loads(formatted_value)
 
-                        if isinstance(parsed_value, str):
-                            parsed_value = json.loads(parsed_value)
+                            if isinstance(parsed_value, str):
+                                parsed_value = json.loads(parsed_value)
 
-                        if isinstance(parsed_value, list):
-                            course.concorrentesIA = [
-                                {
-                                    "instituicao": str(item.split(";")[0].strip()),
-                                    "curso": str(f"{item.split(';')[1].strip()} - {item.split(';')[2].strip()}"),
-                                    "link": str(item.split(";")[3].strip()),
-                                    "valor": str(item.split(";")[4].strip()) if len(item.split(";")) > 4 else "Valor desconhecido"
-                                }
-                                for item in parsed_value
-                            ]
-                        else:
-                            raise ValueError("Valor analisado não é uma lista")
-                    except Exception as error:
-                        course.concorrentesIA = [{
-                            "instituicao": "Erro ao processar",
-                            "curso": "Erro ao processar",
-                            "link": "#",
-                            "valor": "Erro ao processar"
-                        }]
-            elif field["name"] == "Performance de Cursos / Área correlatas":
-                course.performance = value
-            elif field["name"] == "Vídeo de Defesa da Proposta de Curso":
-                course.videoUrl = value
-            elif field["name"] == "Disciplinas IA":
-                if value:
-                    course.disciplinasIA = []
-                    disciplinas = value.split("\n")
+                            if isinstance(parsed_value, list):
+                                course.concorrentesIA = [
+                                    {
+                                        "instituicao": str(item.split(";")[0].strip()),
+                                        "curso": str(f"{item.split(';')[1].strip()} - {item.split(';')[2].strip()}"),
+                                        "link": str(item.split(";")[3].strip()),
+                                        "valor": str(item.split(";")[4].strip()) if len(item.split(";")) > 4 else "Valor desconhecido"
+                                    }
+                                    for item in parsed_value
+                                ]
+                            else:
+                                raise ValueError("Valor analisado não é uma lista")
+                        except Exception as error:
+                            logger.warning(f"Erro ao processar Concorrentes IA: {error}")
+                            course.concorrentesIA = [{
+                                "instituicao": "Erro ao processar",
+                                "curso": "Erro ao processar",
+                                "link": "#",
+                                "valor": "Erro ao processar"
+                            }]
+                elif field["name"] == "Performance de Cursos / Área correlatas":
+                    course.performance = value
+                elif field["name"] == "Vídeo de Defesa da Proposta de Curso":
+                    course.videoUrl = value
+                elif field["name"] == "Disciplinas IA":
+                    if value:
+                        course.disciplinasIA = []
+                        disciplinas = value.split("\n")
 
-                    for disciplina in disciplinas:
-                        valores = disciplina.split(";")
+                        for disciplina in disciplinas:
+                            valores = disciplina.split(";")
                         if len(valores) >= 1:
                             nome = valores[0]
                             carga = valores[1] if len(valores) > 1 else "0"
