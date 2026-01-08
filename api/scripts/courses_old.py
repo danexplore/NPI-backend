@@ -21,7 +21,6 @@ if os.getenv("ENVIRONMENT") == "development":
 
 API_URL = PIPEFY_GRAPHQL_URL
 
-
 def generate_slug_from_name(nome: str) -> str:
     """Gera um slug a partir do nome do curso"""
     if not nome:
@@ -143,42 +142,42 @@ def parse_api_response_unyleya(api_response: ApiResponse, phase_name: str) -> Di
                         course.disciplinasIA = []
                         disciplinas = value.split("\n")
 
-                        for disciplina in disciplinas:
-                            valores = disciplina.split(";")
-                            if len(valores) >= 1:
-                                nome = valores[0]
-                                carga = valores[1] if len(valores) > 1 else "0"
-                                if len(valores) > 2:
-                                    tipo = "Reuso" if any(substring in valores[2].strip().lower() for substring in ["aproveitamento", "reaproveitamento", "reuso"]) else "Nova"
-                                else:
-                                    tipo = "Não informado"
+                    for disciplina in disciplinas:
+                        valores = disciplina.split(";")
+                        if len(valores) >= 1:
+                            nome = valores[0]
+                            carga = valores[1] if len(valores) > 1 else "0"
+                            if len(valores) > 2:
+                                tipo = "Reuso" if any(substring in valores[2].strip().lower() for substring in ["aproveitamento", "reaproveitamento", "reuso"]) else "Nova"
                             else:
-                                nome = "Disciplina sem nome"
-                                carga = "0"
                                 tipo = "Não informado"
-                                
-                            try:
-                                carga = re.search(r'\d+', carga).group()
-                            except AttributeError:
-                                carga = 0
-                            course.disciplinasIA.append({
-                                "nome": nome,
-                                "carga": int(carga),
-                                "tipo": tipo
-                            })
-                        course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
+                        else:
+                            nome = "Disciplina sem nome"
+                            carga = "0"
+                            tipo = "Não informado"
+                            
+                        try:
+                            carga = re.search(r'\d+', carga).group()
+                        except AttributeError:
+                            carga = 0
+                        course.disciplinasIA.append({
+                            "nome": nome,
+                            "carga": int(carga),
+                            "tipo": tipo
+                        })
+                    course.cargaHoraria = sum(disciplina["carga"] for disciplina in course.disciplinasIA)
 
-                        disciplinas_desenvolvimento = [
-                            "Desenvolvimento Profissional".lower(),
-                            "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
-                        ]
-                        if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
-                            course.disciplinasIA.insert(0, {
-                                "nome": "Desenvolvimento Profissional",
-                                "carga": 40,
-                                "tipo": "Reuso"
-                            })
-                            course.cargaHoraria += 40
+                    disciplinas_desenvolvimento = [
+                        "Desenvolvimento Profissional".lower(),
+                        "Desenvolvimento Pessoal e Profissional nas Carreiras da Saúde".lower()
+                    ]
+                    if not any(d["nome"].lower() in disciplinas_desenvolvimento for d in course.disciplinasIA):
+                        course.disciplinasIA.insert(0, {
+                            "nome": "Desenvolvimento Profissional",
+                            "carga": 40,
+                            "tipo": "Reuso"
+                        })
+                        course.cargaHoraria += 40
                 elif field["name"] == "Status Pré-Comitê":
                     course.statusPreComite = value
                 elif field["name"] == "Status Pós-Comitê":
@@ -360,10 +359,9 @@ async def get_courses_pre_comite():
                 else:
                     paginated_query = QUERY
 
-                headers = await get_pipefy_headers()
                 response = await client.post(
                     API_URL,
-                    headers=headers,
+                    headers=HEADERS,
                     json={"query": paginated_query}
                 )
 
@@ -447,10 +445,9 @@ async def get_courses_unyleya():
                 else:
                     paginated_query = QUERY
 
-                headers = await get_pipefy_headers()
                 response = await client.post(
                     API_URL,
-                    headers=headers,
+                    headers=HEADERS,
                     json={"query": paginated_query}
                 )
 
@@ -496,11 +493,9 @@ async def get_courses_ymed():
                     paginated_query = QUERY.replace(
                         'cards(first: 50)', f'cards(first: 50, after: "{cursor}")'
                     )
-                
-                headers = await get_pipefy_headers()
                 response = await client.post(
                     API_URL,
-                    headers=headers,
+                    headers=HEADERS,
                     json={"query": paginated_query}
                 )
                 if not response.is_success:
@@ -549,10 +544,12 @@ async def update_course_status(course_update: CourseUpdate):
 
             # Atualizar status se fornecido
             if course_update.status:
-                headers = await get_pipefy_headers()
                 status_response = await client.post(
                     API_URL,
-                    headers=headers,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {PIPEFY_API_KEY}",
+                    },
                     json={
                         "query": UPDATE_CARD_FIELD_MUTATION,
                         "variables": {
@@ -572,10 +569,12 @@ async def update_course_status(course_update: CourseUpdate):
 
             # Atualizar observações se fornecidas
             if course_update.observations is not None:
-                headers = await get_pipefy_headers()
                 observations_response = await client.post(
                     API_URL,
-                    headers=headers,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {PIPEFY_API_KEY}",
+                    },
                     json={
                         "query": UPDATE_CARD_FIELD_MUTATION,
                         "variables": {
@@ -652,10 +651,9 @@ async def create_comment_in_card(card_id: str, text: str):
     """
     try:
         async with httpx.AsyncClient() as client:
-            headers = await get_pipefy_headers()
             response = await client.post(
                 API_URL,
-                headers=headers,
+                headers=HEADERS,
                 json={
                     "query": CREATE_COMMENT_MUTATION,
                     "variables": {
@@ -690,10 +688,9 @@ async def get_card_comments_data(card_id: int):
     """ % card_id
     try:
         async with httpx.AsyncClient() as client:
-            headers = await get_pipefy_headers()
             response = await client.post(
                 API_URL,
-                headers=headers,
+                headers=HEADERS,
                 json={
                     "query": GET_COMMENTS_QUERY,
                     "variables": {
