@@ -345,6 +345,9 @@ async def get_ymed_courses_data(credentials: HTTPBasicCredentials = Depends(veri
 
 @app.get("/home-data")
 async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """
+    Retorna dados agregados para a home, com tratamento de erro robusto e nomes de campos alinhados.
+    """
     redis_key = "home_data"
     field_order = [
         "active_projects",
@@ -353,25 +356,29 @@ async def home_data(credentials: HTTPBasicCredentials = Depends(verify_basic_aut
         "approved",
         "pendent",
         "standby",
-        "total_propostas",
-        "unyleya_propostas",
-        "ymed_propostas"
+        "total_proposals",
+        "unyleya_proposals",
+        "ymed_proposals"
     ]
-    cached_data = redis.json.get(redis_key)
-    if cached_data:
-        raw = cached_data[0]
-        ordered = {k: raw[k] for k in field_order if k in raw}
-        for k in raw:
+    try:
+        cached_data = redis.json.get(redis_key)
+        if cached_data:
+            raw = cached_data[0]
+            ordered = {k: raw[k] for k in field_order if k in raw}
+            for k in raw:
+                if k not in ordered:
+                    ordered[k] = raw[k]
+            return ordered
+        home_data_dict = await get_home_data()
+        redis.json.set(redis_key, value=home_data_dict, path="$", nx=True)
+        ordered = {k: home_data_dict[k] for k in field_order if k in home_data_dict}
+        for k in home_data_dict:
             if k not in ordered:
-                ordered[k] = raw[k]
+                ordered[k] = home_data_dict[k]
         return ordered
-    home_data_dict = await get_home_data()
-    redis.json.set(redis_key, value=home_data_dict, path="$", nx=True)
-    ordered = {k: home_data_dict[k] for k in field_order if k in home_data_dict}
-    for k in home_data_dict:
-        if k not in ordered:
-            ordered[k] = home_data_dict[k]
-    return ordered
+    except Exception as e:
+        logger.error(f"Erro ao buscar dados da home: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar dados da home: {str(e)}")
 
 @app.get("/get-card-comments")
 async def get_card_comments(card_id: int, credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
