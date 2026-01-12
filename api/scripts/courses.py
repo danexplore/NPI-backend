@@ -21,7 +21,6 @@ if os.getenv("ENVIRONMENT") == "development":
 
 API_URL = PIPEFY_GRAPHQL_URL
 
-
 def generate_slug_from_name(nome: str) -> str:
     """Gera um slug a partir do nome do curso"""
     if not nome:

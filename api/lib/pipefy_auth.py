@@ -21,9 +21,10 @@ PIPEFY_SERVICE_ACCOUNT_SECRET = os.getenv("PIPEFY_SERVICE_ACCOUNT_SECRET")
 # Fallback para token legado (deprecated)
 PIPEFY_API_KEY = os.getenv("PIPEFY_API_KEY")
 
-# URLs
-PIPEFY_OAUTH_URL = "https://app.pipefy.com/oauth/token"
-PIPEFY_GRAPHQL_URL = "https://api.pipefy.com/graphql"
+
+# URLs do .env (com fallback para padrão)
+PIPEFY_OAUTH_URL = os.getenv("PIPEFY_OAUTH_URL", "https://app.pipefy.com/oauth/token")
+PIPEFY_API_URL = os.getenv("PIPEFY_API_URL", "https://api.pipefy.com/graphql")
 
 # Cache de token
 _cached_token: Optional[str] = None

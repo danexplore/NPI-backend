@@ -59,7 +59,21 @@ async def lifespan(app: FastAPI):
         logger.info("Iniciando aplicação...")
         
         # Verificar variáveis de ambiente críticas
-        required_env_vars = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "OPENAI_API_KEY"]
+        required_env_vars = [
+            "UPSTASH_REDIS_REST_URL",
+            "UPSTASH_REDIS_REST_TOKEN",
+            "OPENAI_API_KEY",
+            "PIPEFY_SERVICE_ACCOUNT_ID",
+            "PIPEFY_SERVICE_ACCOUNT_SECRET",
+            "PIPEFY_OAUTH_URL",
+            "PIPEFY_API_URL",
+            "JWT_SECRET_KEY",
+            "DB_HOST",
+            "DB_USER",
+            "DB_PASSWORD",
+            "DB_NAME",
+            "DB_PORT"
+        ]
         missing_vars = [var for var in required_env_vars if not os.getenv(var)]
         
         if missing_vars:
@@ -154,7 +168,17 @@ async def health_check():
             "UPSTASH_REDIS_REST_URL": bool(os.getenv("UPSTASH_REDIS_REST_URL")),
             "UPSTASH_REDIS_REST_TOKEN": bool(os.getenv("UPSTASH_REDIS_REST_TOKEN")),
             "OPENAI_API_KEY": openai_status,
-            "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS"))
+            "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS")),
+            "PIPEFY_SERVICE_ACCOUNT_ID": bool(os.getenv("PIPEFY_SERVICE_ACCOUNT_ID")),
+            "PIPEFY_SERVICE_ACCOUNT_SECRET": bool(os.getenv("PIPEFY_SERVICE_ACCOUNT_SECRET")),
+            "PIPEFY_OAUTH_URL": bool(os.getenv("PIPEFY_OAUTH_URL")),
+            "PIPEFY_API_URL": bool(os.getenv("PIPEFY_API_URL")),
+            "JWT_SECRET_KEY": bool(os.getenv("JWT_SECRET_KEY")),
+            "DB_HOST": bool(os.getenv("DB_HOST")),
+            "DB_USER": bool(os.getenv("DB_USER")),
+            "DB_PASSWORD": bool(os.getenv("DB_PASSWORD")),
+            "DB_NAME": bool(os.getenv("DB_NAME")),
+            "DB_PORT": bool(os.getenv("DB_PORT"))
         }
         return {
             "status": "healthy",
