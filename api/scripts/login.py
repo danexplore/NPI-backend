@@ -7,7 +7,7 @@ import os
 import bcrypt
 import httpx
 from dotenv import load_dotenv
-from ..lib.pipefy_auth import get_pipefy_headers, PIPEFY_GRAPHQL_URL
+from ..lib.pipefy_auth import get_pipefy_headers, PIPEFY_API_URL
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
 
-API_URL = PIPEFY_GRAPHQL_URL
+API_URL = PIPEFY_API_URL
 
 async def fetch_users_from_pipefy():
     all_users: Dict[int, User] = {}
