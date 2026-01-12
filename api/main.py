@@ -13,6 +13,7 @@ from datetime import datetime
 # Carregar variáveis de ambiente primeiro
 load_dotenv()
 
+
 # Imports relativos corretos
 from .lib.models import *
 from .scripts.courses import *
@@ -30,6 +31,7 @@ from .scripts.chatbotYmed import (
     clear_conversation_history as clear_ymed_history
 )
 import asyncio
+
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -83,7 +85,14 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
 
+
 app = FastAPI(lifespan=lifespan)
+
+# Endpoint para retornar informações do usuário autenticado
+@app.get("/api/me")
+async def get_me(credentials: HTTPBasicCredentials = Depends(verify_basic_auth)):
+    """Retorna informações do usuário autenticado."""
+    return {"username": credentials.username}
 
 app.add_middleware(
     CORSMiddleware,
@@ -127,16 +136,19 @@ def sort_and_reorder_dict(raw: dict, field_order: list) -> dict:
 async def root():
     return {"message": "API de Cursos da Unyleya - Versão 1.0"}
 
+
 @app.get("/health")
 async def health_check():
-    """Endpoint de verificação de saúde da aplicação"""
+    """Endpoint de verificação de saúde da aplicação, com logs detalhados de DNS."""
     try:
+        logger.info(f"Testando DNS para Redis: {os.getenv('UPSTASH_REDIS_REST_URL')}")
+        logger.info(f"Testando DNS para OpenAI: {os.getenv('OPENAI_API_KEY')}")
+        logger.info(f"Testando DNS para Pipefy: {os.getenv('PIPEFY_API_URL')}")
         # Verificar conexão com Redis
         redis.ping()
-        
+        logger.info("Ping Redis OK")
         # Verificar OpenAI
         openai_status = bool(os.getenv("OPENAI_API_KEY"))
-        
         # Verificar variáveis de ambiente
         env_status = {
             "UPSTASH_REDIS_REST_URL": bool(os.getenv("UPSTASH_REDIS_REST_URL")),
@@ -144,7 +156,6 @@ async def health_check():
             "OPENAI_API_KEY": openai_status,
             "BASIC_AUTH_USERS": bool(os.getenv("BASIC_AUTH_USERS"))
         }
-        
         return {
             "status": "healthy",
             "environment": os.getenv("ENVIRONMENT", "production"),
@@ -154,7 +165,16 @@ async def health_check():
             "chatbot_ready": all(env_status.values())
         }
     except Exception as e:
+        import socket
         logger.error(f"Health check falhou: {str(e)}")
+        # Tentar resolver manualmente os hosts para log detalhado
+        try:
+            redis_host = os.getenv('UPSTASH_REDIS_REST_URL','').replace('https://','').replace('http://','').split('/')[0]
+            pipefy_host = os.getenv('PIPEFY_API_URL','').replace('https://','').replace('http://','').split('/')[0]
+            logger.error(f"DNS Redis: {redis_host} => {socket.gethostbyname(redis_host)}")
+            logger.error(f"DNS Pipefy: {pipefy_host} => {socket.gethostbyname(pipefy_host)}")
+        except Exception as dns_e:
+            logger.error(f"Erro ao resolver DNS manualmente: {dns_e}")
         raise HTTPException(status_code=500, detail=f"Health check falhou: {str(e)}")
 
 # Auth Functions
