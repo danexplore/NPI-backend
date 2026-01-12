@@ -5,7 +5,7 @@ from typing import Dict
 import json
 import re
 from ..lib.models import CourseUnyleya, CourseYMED, ApiResponse, CourseUpdate
-from ..lib.pipefy_auth import get_pipefy_headers, PIPEFY_GRAPHQL_URL
+from ..lib.pipefy_auth import get_pipefy_headers, PIPEFY_API_URL
 import warnings
 from dotenv import load_dotenv
 from functools import reduce
@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 if os.getenv("ENVIRONMENT") == "development":
     load_dotenv()
 
-API_URL = PIPEFY_GRAPHQL_URL
+API_URL = PIPEFY_API_URL
 
 def generate_slug_from_name(nome: str) -> str:
     """Gera um slug a partir do nome do curso"""
