@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis_npi
+    ports:
+      - "6379:6379"
+    restart: unless-stopped

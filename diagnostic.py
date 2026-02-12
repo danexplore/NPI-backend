@@ -20,11 +20,13 @@ def check_env_vars():
     print("=" * 60)
     
     required_vars = [
-        "PIPEFY_API_KEY",
+        "PIPEFY_SERVICE_ACCOUNT_ID",
+        "PIPEFY_SERVICE_ACCOUNT_SECRET",
+        "PIPEFY_OAUTH_URL",
+        "PIPEFY_API_URL",
         "UPSTASH_REDIS_REST_URL",
         "UPSTASH_REDIS_REST_TOKEN",
-        "OPENAI_API_KEY",
-        "BASIC_AUTH_USERS"
+        "OPENAI_API_KEY"
     ]
     
     for var in required_vars:
@@ -42,30 +44,44 @@ def check_pipefy_connection():
     print("VERIFICANDO CONEXÃO COM PIPEFY")
     print("=" * 60)
     
-    pipefy_key = os.getenv("PIPEFY_API_KEY")
-    if not pipefy_key:
-        print("✗ PIPEFY_API_KEY não definida")
+    service_account_id = os.getenv("PIPEFY_SERVICE_ACCOUNT_ID")
+    service_account_secret = os.getenv("PIPEFY_SERVICE_ACCOUNT_SECRET")
+    oauth_url = os.getenv("PIPEFY_OAUTH_URL")
+    api_url = os.getenv("PIPEFY_API_URL", "https://api.pipefy.com/graphql")
+
+    if not service_account_id or not service_account_secret or not oauth_url:
+        print("✗ Variáveis de autenticação do Pipefy não definidas")
         return False
-    
+
     try:
+        # Obter token OAuth
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": service_account_id,
+            "client_secret": service_account_secret,
+        }
+        resp = httpx.post(oauth_url, data=data, timeout=10.0)
+        if resp.status_code != 200:
+            print(f"✗ Erro ao obter token OAuth: {resp.text[:200]}")
+            return False
+        token = resp.json().get("access_token")
+        if not token:
+            print("✗ Token OAuth não retornado pela API")
+            return False
+
         # Fazer uma query simples
         headers = {
-            "Authorization": f"Bearer {pipefy_key}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        
-        # Query para testar conexão sem fase específica
         test_query = '{ me { name email } }'
-        
         response = httpx.post(
-            "https://api.pipefy.com/graphql",
+            api_url,
             headers=headers,
             json={"query": test_query},
             timeout=10.0
         )
-        
         print(f"Status HTTP: {response.status_code}")
-        
         if response.status_code == 200:
             data = response.json()
             if "errors" in data:
@@ -78,11 +94,9 @@ def check_pipefy_connection():
         else:
             print(f"✗ Erro HTTP: {response.text[:200]}")
             return False
-            
     except Exception as e:
         print(f"✗ Erro ao conectar: {str(e)}")
         return False
-    
     print()
 
 async def check_redis_connection():
@@ -91,39 +105,23 @@ async def check_redis_connection():
     print("VERIFICANDO CONEXÃO COM REDIS")
     print("=" * 60)
     
-    redis_url = os.getenv("UPSTASH_REDIS_REST_URL")
-    redis_token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
-    
-    if not redis_url or not redis_token:
-        print("✗ Variáveis Redis não definidas")
+    import redis.asyncio as redis
+    redis_url = os.getenv("REDIS_URL")
+    if not redis_url:
+        print("✗ Variável REDIS_URL não definida")
         return False
-    
     try:
-        headers = {
-            "Authorization": f"Bearer {redis_token}",
-        }
-        
-        # Fazer um ping
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{redis_url}/ping",
-                headers=headers,
-                timeout=10.0
-            )
-        
-        print(f"Status HTTP: {response.status_code}")
-        
-        if response.status_code in [200, 201]:
+        r = redis.from_url(redis_url)
+        pong = await r.ping()
+        if pong:
             print("✓ Conexão com Redis OK")
             return True
         else:
-            print(f"✗ Erro Redis: {response.text[:200]}")
+            print("✗ Redis não respondeu ao ping")
             return False
-            
     except Exception as e:
         print(f"✗ Erro ao conectar: {str(e)}")
         return False
-    
     print()
 
 async def check_courses_endpoints():

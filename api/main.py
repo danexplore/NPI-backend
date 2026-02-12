@@ -60,8 +60,7 @@ async def lifespan(app: FastAPI):
         
         # Verificar variáveis de ambiente críticas
         required_env_vars = [
-            "UPSTASH_REDIS_REST_URL",
-            "UPSTASH_REDIS_REST_TOKEN",
+            "REDIS_URL",
             "OPENAI_API_KEY",
             "PIPEFY_SERVICE_ACCOUNT_ID",
             "PIPEFY_SERVICE_ACCOUNT_SECRET",
@@ -277,12 +276,12 @@ async def diagnose_pipefy_connection(credentials: HTTPBasicCredentials = Depends
     import httpx
     try:
         api_url = "https://api.pipefy.com/graphql"
-        pipefy_key = os.getenv("PIPEFY_API_KEY")
+        pipefy_key = os.getenv("PIPEFY_SERVICE_ACCOUNT_SECRET")
         
         if not pipefy_key:
             return {
                 "status": "error",
-                "message": "PIPEFY_API_KEY não configurada"
+                "message": "PIPEFY_SERVICE_ACCOUNT_SECRET não configurada"
             }
         
         # Fazer uma query simples para testar
